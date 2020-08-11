@@ -298,7 +298,7 @@ public:
   }
 
   bool setsIndent() {
-    return InnermostCtx.hasValue();
+    return InnermostCtx.hasValue() || InDocCommentBlock || InCommentLine;
   }
 
   void padToExactColumn(StringBuilder &Builder,
@@ -1284,68 +1284,62 @@ private:
                                          StringLiteralRange.getEnd())
         .str().equals(StringRef("\"\"\""));
 
-    SourceLoc AlignLoc = TargetLocation;
     bool TargetLineEmpty = isLineAtLocEmpty(SM, TargetLineLoc);
-    if (TargetLineEmpty) {
-      // Indent to the same indentation level as the first non-empty line
-      // before the target. If that line is the start line then either
-      // indent to the end quotes if they exist, the indentation of the start
-      // quotes if they are on their own line, or an extra indentation level
-      // from the start otherwise.
-
-      SourceLoc PreviousLineLoc = TargetLineLoc;
-      while (SM.isBeforeInBuffer(StringLiteralRange.getStart(), PreviousLineLoc)) {
-        PreviousLineLoc =
-            Lexer::getLocForStartOfLine(SM, PreviousLineLoc.getAdvancedLoc(-1));
-        if (!isLineAtLocEmpty(SM, PreviousLineLoc)) {
-          AlignLoc = getLocForContentStartOnSameLine(SM, PreviousLineLoc);
-          break;
-        }
-      }
-
-      if (isOnSameLine(SM, AlignLoc, StringLiteralRange.getStart())) {
-        if (!HaveEndQuotes) {
-          SourceLoc StartLineContentLoc =
-              getLocForContentStartOnSameLine(SM, StringLiteralRange.getStart());
-          bool StartLineOnlyQuotes = CharSourceRange(SM, StartLineContentLoc,
-                                            StringLiteralRange.getEnd())
-              .str().startswith(StringRef("\"\"\""));
-          if (!StartLineOnlyQuotes)
-            return IndentContext {StringLiteralRange.getStart(), true};
-          AlignLoc = StringLiteralRange.getStart();
-        } else {
-          AlignLoc = EndLineContentLoc;
-        }
-      }
-    } else if (!HaveEndQuotes) {
+    if (!TargetLineEmpty && !HaveEndQuotes) {
       // Target line has contents but there are no end quotes - don't change
       // indentation at all.
       return None;
     }
 
-    if (HaveEndQuotes) {
-      // If we have end quotes we want to make sure any indentation we were
-      // going to do is at least as much as the end quote's indentation. In
-      // the case that the line has contents we also *only* want to change
-      // the indentation if it is currently less than the end quote's
-      // indentation.
+    if (TargetLineEmpty && !HaveEndQuotes) {
+      // Indent to the same indentation level as the first non-empty line
+      // before the target. If that line is the start line then either use
+      // the same indentation of the start quotes if they are on their own
+      // line, or an extra indentation otherwise.
 
-      CharSourceRange AlignIndentRange = CharSourceRange(SM,
-                                                         Lexer::getLocForStartOfLine(SM, AlignLoc),
-                                                         AlignLoc);
-      CharSourceRange EndIndentRange = CharSourceRange(SM,
-                                                       Lexer::getLocForStartOfLine(SM, EndLineContentLoc),
-                                                       EndLineContentLoc);
-      size_t AlignIndent = calcVisibleWhitespacePrefix(AlignIndentRange.str(), FmtOptions);
-      size_t EndIndent = calcVisibleWhitespacePrefix(EndIndentRange.str(), FmtOptions);
-      if (AlignIndent < EndIndent) {
-        AlignLoc = EndLineContentLoc;
-      } else if (!TargetLineEmpty) {
-        return None;
+      SourceLoc AlignLoc = TargetLineLoc;
+      while (SM.isBeforeInBuffer(StringLiteralRange.getStart(), AlignLoc)) {
+        AlignLoc = Lexer::getLocForStartOfLine(SM, AlignLoc.getAdvancedLoc(-1));
+        if (!isLineAtLocEmpty(SM, AlignLoc)) {
+          AlignLoc = getLocForContentStartOnSameLine(SM, AlignLoc);
+          break;
+        }
       }
+
+      if (isOnSameLine(SM, AlignLoc, StringLiteralRange.getStart())) {
+        SourceLoc StartLineContentLoc =
+            getLocForContentStartOnSameLine(SM, StringLiteralRange.getStart());
+        bool StartLineOnlyQuotes = CharSourceRange(SM, StartLineContentLoc,
+                                                   StringLiteralRange.getEnd())
+            .str().startswith(StringRef("\"\"\""));
+        if (!StartLineOnlyQuotes)
+          return IndentContext {StringLiteralRange.getStart(), true};
+
+        AlignLoc = StringLiteralRange.getStart();
+      }
+
+      return IndentContext {AlignLoc, false, IndentContext::Exact};
     }
 
-    return IndentContext {AlignLoc, false, IndentContext::Exact};
+    // If there are end quotes, only enforce a minimum indentation. We don't
+    // want to add any other indentation since that could add unintended
+    // whitespace to existing strings. Could change this if the full range
+    // was passed rather than a single line - in that case we would indent
+    // if the range was a single empty line.
+
+    CharSourceRange TargetIndentRange =
+        CharSourceRange(SM, Lexer::getLocForStartOfLine(SM, TargetLocation),
+                        TargetLocation);
+    CharSourceRange EndIndentRange =
+        CharSourceRange(SM, Lexer::getLocForStartOfLine(SM, EndLineContentLoc),
+                        EndLineContentLoc);
+
+    size_t TargetIndent = calcVisibleWhitespacePrefix(TargetIndentRange.str(), FmtOptions);
+    size_t EndIndent = calcVisibleWhitespacePrefix(EndIndentRange.str(), FmtOptions);
+    if (TargetIndent >= EndIndent)
+      return None;
+    
+    return IndentContext {EndLineContentLoc, false, IndentContext::Exact};
   }
 
 #pragma mark ASTWalker overrides and helpers
@@ -1460,7 +1454,7 @@ private:
 
     // Don't visit the child expressions of interpolated strings directly -
     // visit only the argument of each appendInterpolation call instead, and
-    // update InStringLiteral for each segment.
+    // set StringLiteralRange if needed for each segment.
     if (auto *ISL = dyn_cast<InterpolatedStringLiteralExpr>(E)) {
       if (Action.shouldVisitChildren()) {
         llvm::SaveAndRestore<ASTWalker::ParentTy>(Parent, ISL);

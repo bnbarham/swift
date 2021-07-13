@@ -15,11 +15,11 @@ typealias NestedAliasCallback = SomeCallback
 // RUN: %refactor -add-async-alternative -dump-text -source-filename %s -pos=%(line+3):6 | %FileCheck -check-prefix=ASYNC-SIMPLE %s
 // RUN: %refactor -add-async-alternative -dump-text -source-filename %s -pos=%(line+2):12 | %FileCheck -check-prefix=ASYNC-SIMPLE %s
 // RUN: %refactor -add-async-alternative -dump-text -source-filename %s -pos=%(line+1):13 | %FileCheck -check-prefix=ASYNC-SIMPLE %s
-func simple(completion: (String) -> Void) { }
+func simple(completion: @escaping (String) -> Void) { }
 // ASYNC-SIMPLE: basic.swift [[# @LINE-1]]:1 -> [[# @LINE-1]]:1
-// ASYNC-SIMPLE-NEXT: @available(*, deprecated, message: "Prefer async alternative instead")
+// ASYNC-SIMPLE-NEXT: @available(*, renamed: "simple()")
 // ASYNC-SIMPLE-EMPTY:
-// ASYNC-SIMPLE-NEXT: basic.swift [[# @LINE-4]]:43 -> [[# @LINE-4]]:46
+// ASYNC-SIMPLE-NEXT: basic.swift [[# @LINE-4]]:53 -> [[# @LINE-4]]:56
 // ASYNC-SIMPLE-NEXT: {
 // ASYNC-SIMPLE-NEXT: async {
 // ASYNC-SIMPLE-NEXT: let result = await simple()
@@ -27,11 +27,11 @@ func simple(completion: (String) -> Void) { }
 // ASYNC-SIMPLE-NEXT: }
 // ASYNC-SIMPLE-NEXT: }
 // ASYNC-SIMPLE-EMPTY:
-// ASYNC-SIMPLE-NEXT: basic.swift [[# @LINE-12]]:46 -> [[# @LINE-12]]:46
+// ASYNC-SIMPLE-NEXT: basic.swift [[# @LINE-12]]:56 -> [[# @LINE-12]]:56
 // ASYNC-SIMPLE-EMPTY:
 // ASYNC-SIMPLE-EMPTY:
 // ASYNC-SIMPLE-EMPTY:
-// ASYNC-SIMPLE-NEXT: basic.swift [[# @LINE-16]]:46 -> [[# @LINE-16]]:46
+// ASYNC-SIMPLE-NEXT: basic.swift [[# @LINE-16]]:56 -> [[# @LINE-16]]:56
 // ASYNC-SIMPLE-NEXT: func simple() async -> String { }
 
 // RUN: %refactor-check-compiles -add-async-alternative -dump-text -source-filename %s -pos=%(line+1):1 | %FileCheck -check-prefix=ASYNC-SIMPLENOLABEL %s

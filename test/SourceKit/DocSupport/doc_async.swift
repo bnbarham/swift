@@ -1,10 +1,20 @@
 // RUN: %empty-directory(%t.mod)
-// RUN: %swift -enable-experimental-concurrency -emit-module -o %t.mod/async.swiftmodule %s -parse-as-library -emit-module-doc-path %t.mod/async.swiftdoc
+// RUN: %swift -emit-module -o %t.mod/async.swiftmodule %s -parse-as-library -emit-module-doc-path %t.mod/async.swiftdoc
 // RUN: %sourcekitd-test -req=doc-info -module async -- -I %t.mod | %FileCheck %s
 
 // REQUIRES: concurrency
 
 public protocol AsyncProto {
+  // CHECK: key.usr: "s:5async10AsyncProtoP05protoB4PropSivp"
+  // CHECK-NOT: },
+  // CHECK: key.is_async: 1
+  // CHECK: },
+  var protoAsyncProp: Int { get async }
+  // CHECK: key.usr: "s:5async10AsyncProtoP08protoNonB4PropSivp"
+  // CHECK-NOT: key.is_async: 1
+  // CHECK: },
+  var protoNonAsyncProp: Int { get }
+
   func protoAsyncFunc() async
   // CHECK: key.usr: "s:5async10AsyncProtoP05protoB4FuncyyYaF"
   // CHECK-NOT: }
@@ -17,6 +27,16 @@ public protocol AsyncProto {
 }
 
 public struct AsyncStruct: AsyncProto {
+  // CHECK: key.usr: "s:5async11AsyncStructV05protoB4PropSivp"
+  // CHECK-NOT: },
+  // CHECK: key.is_async: 1
+  // CHECK: },
+  public var protoAsyncProp: Int { get async { return 1 } }
+  // CHECK: key.usr: "s:5async11AsyncStructV08protoNonB4PropSivp"
+  // CHECK-NOT: key.is_async: 1
+  // CHECK: },
+  public var protoNonAsyncProp: Int
+
   public func structAsyncFunc() async { }
   // CHECK: key.usr: "s:5async11AsyncStructV06structB4FuncyyYaF"
   // CHECK-NOT: }

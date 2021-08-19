@@ -125,16 +125,17 @@ public:
     auto *objcClass = dyn_cast_or_null<clang::ObjCInterfaceDecl>(clangDecl);
     if (!objcClass)
       return;
-    if (!objcClass->getTypeParamList())
-      return;
-    assert(objcClass->getTypeParamList()->size() != 0);
-    os << "<";
-    interleave(*objcClass->getTypeParamList(),
-               [this](const clang::ObjCTypeParamDecl *param) {
-                 os << param->getName();
-               },
-               [this] { os << ", "; });
-    os << ">";
+
+    // If the imported decl doesn't have generic parameters then they could
+    // not have been referenced, so there's no reason to add the underlying
+    // type parameters to the header.
+    if (auto *params = importedClass->getGenericParams()) {
+      os << "<";
+      interleave(*params, [this](const GenericTypeParamDecl *param) {
+        os << param->getName();
+      }, [this] { os << ", "; });
+      os << ">";
+    }
   }
 
   void printAdHocCategory(iterator_range<const ValueDecl * const *> members) {

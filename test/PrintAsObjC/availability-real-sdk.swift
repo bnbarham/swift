@@ -7,7 +7,7 @@
 // REQUIRES: objc_interop
 
 
-// CHECK-LABEL: @interface NSArray<ObjectType> (SWIFT_EXTENSION(main))
+// CHECK-LABEL: @interface NSArray (SWIFT_EXTENSION(main))
 // CHECK-NEXT: - (id _Nonnull)deprecatedMethodInFavorOfReverseObjectEnumerator SWIFT_WARN_UNUSED_RESULT
 // CHECK-SAME: SWIFT_DEPRECATED_MSG("This method is deprecated in favor to the old reverseObjectEnumerator method", "reverseObjectEnumerator");
 // CHECK-NEXT: - (id _Nonnull)deprecatedMethodOnMacOSInFavorOfReverseObjectEnumerator SWIFT_WARN_UNUSED_RESULT

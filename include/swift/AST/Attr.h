@@ -2024,9 +2024,16 @@ public:
 /// decls themselves.
 class ClangDetailsAttr : public DeclAttribute {
 public:
-  ClangDetailsAttr(bool IsObjCDirect)
+  /// The attached doc comment, parsed and formatted into XML.
+  ///
+  /// Parsing currently requires the underlying Clang decl, it's possible we
+  /// could fix that, but it would be better to remove the XML generation
+  /// entirely. Just generate it for all decls for now.
+  const StringRef XMLComment;
+
+  ClangDetailsAttr(StringRef XMLComment, bool IsObjCDirect)
       : DeclAttribute(DAK_ClangDetails, SourceLoc(), SourceRange(),
-                      /*Implicit=*/true) {
+                      /*Implicit=*/true), XMLComment(XMLComment) {
     Bits.ClangDetailsAttr.IsObjCDirect = IsObjCDirect;
   }
 

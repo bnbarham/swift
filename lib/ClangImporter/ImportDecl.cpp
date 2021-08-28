@@ -55,6 +55,7 @@
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/Specifiers.h"
 #include "clang/Basic/TargetInfo.h"
+#include "clang/Index/CommentToXML.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/Lookup.h"
 
@@ -8606,15 +8607,24 @@ static bool isUsingMacroName(clang::SourceManager &SM,
 
 void ClangImporter::Implementation::importClangDetails(
     const clang::NamedDecl *ClangDecl, Decl *MappedDecl) {
-  bool IsObjCDirect = false;
+  StringRef XMLComment;
+  if (const clang::comments::FullComment *FC =
+      getClangASTContext().getCommentForDecl(ClangDecl, /*PP=*/nullptr)) {
+    // TODO: Why is this not just a namespace?
+    clang::index::CommentToXMLConverter Converter;
+    SmallString<1024> XML;
+    Converter.convertCommentToXML(FC, XML, getClangASTContext());
+    XMLComment = SwiftContext.AllocateCopy(XML.str());
+  }
 
+  bool IsObjCDirect = false;
   if (auto method = dyn_cast<clang::ObjCMethodDecl>(ClangDecl)) {
     IsObjCDirect = method->isDirectMethod();
   } else if (auto property = dyn_cast<clang::ObjCPropertyDecl>(ClangDecl)) {
     IsObjCDirect = property->isDirectProperty();
   }
 
-  auto *Attr = new (SwiftContext) ClangDetailsAttr(IsObjCDirect);
+  auto *Attr = new (SwiftContext) ClangDetailsAttr(XMLComment, IsObjCDirect);
   MappedDecl->getAttrs().add(Attr);
 }
 

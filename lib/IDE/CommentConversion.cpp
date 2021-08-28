@@ -389,24 +389,6 @@ visitDocComment(const DocComment *DC, TypeOrExtensionDecl SynthesizedTarget) {
   OS << RootEndTag;
 }
 
-static bool getClangDocumentationCommentAsXML(const clang::Decl *D,
-                                              raw_ostream &OS) {
-  const auto &ClangContext = D->getASTContext();
-  const clang::comments::FullComment *FC =
-      ClangContext.getCommentForDecl(D, /*PP=*/nullptr);
-  if (!FC)
-    return false;
-
-  // FIXME: hang the converter object somewhere so that it is persistent
-  // between requests to this AST.
-  clang::index::CommentToXMLConverter Converter;
-
-  llvm::SmallString<1024> XML;
-  Converter.convertCommentToXML(FC, XML, ClangContext);
-  OS << XML;
-  return true;
-}
-
 static void
 replaceObjcDeclarationsWithSwiftOnes(const Decl *D, StringRef Doc,
                                      raw_ostream &OS,
@@ -458,16 +440,11 @@ std::string ide::extractPlainTextFromComment(const StringRef Text) {
 
 bool ide::getDocumentationCommentAsXML(const Decl *D, raw_ostream &OS,
                                        TypeOrExtensionDecl SynthesizedTarget) {
-  auto MaybeClangNode = D->getClangNode();
-  if (MaybeClangNode) {
-    if (auto *CD = MaybeClangNode.getAsDecl()) {
-      std::string S;
-      llvm::raw_string_ostream SS(S);
-      if (getClangDocumentationCommentAsXML(CD, SS)) {
-        replaceObjcDeclarationsWithSwiftOnes(D, SS.str(), OS,
-                                             SynthesizedTarget);
-        return true;
-      }
+  if (D->originatedFromClang()) {
+    if (const ClangDetailsAttr *Attr = D->getClangDetails()) {
+      replaceObjcDeclarationsWithSwiftOnes(D, Attr->XMLComment, OS,
+                                           SynthesizedTarget);
+      return true;
     }
     return false;
   }

@@ -296,7 +296,7 @@ class alignas(1 << DeclAlignInBits) Decl : public ASTAllocated<Decl> {
 protected:
   union { uint64_t OpaqueBits;
 
-  SWIFT_INLINE_BITFIELD_BASE(Decl, bitmax(NumDeclKindBits,8)+1+1+1+1+1,
+  SWIFT_INLINE_BITFIELD_BASE(Decl, bitmax(NumDeclKindBits,8)+1+1+1+1+1+1,
     Kind : bitmax(NumDeclKindBits,8),
 
     /// Whether this declaration is invalid.
@@ -310,6 +310,10 @@ protected:
     ///
     /// Use getClangNode() to retrieve the corresponding Clang AST.
     FromClang : 1,
+
+    // TODO: Replace FromClang when there are no more uses of it
+    /// Whether this declaration originated from Clang.
+    OriginatedFromClang : 1,
 
     /// Whether this declaration was added to the surrounding
     /// DeclContext of an active #if config clause.
@@ -719,6 +723,7 @@ protected:
     Bits.Decl.Invalid = false;
     Bits.Decl.Implicit = false;
     Bits.Decl.FromClang = false;
+    Bits.Decl.OriginatedFromClang = false;
     Bits.Decl.EscapedFromIfConfig = false;
     Bits.Decl.Hoisted = false;
   }
@@ -901,6 +906,16 @@ public:
 
   /// \returns the brief comment attached to this declaration.
   StringRef getBriefComment() const;
+
+  // TODO: Remove hasClangNode when there are no more uses
+  /// Returns true if this declaration was imported from a Clang AST node.
+  bool originatedFromClang() const {
+    return Bits.Decl.OriginatedFromClang;
+  }
+
+  void setOriginatedFromClang(bool OriginatedFromClang) {
+    Bits.Decl.OriginatedFromClang = OriginatedFromClang;
+  }
 
   /// Returns true if there is a Clang AST node associated
   /// with self.

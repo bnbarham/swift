@@ -8581,6 +8581,8 @@ ClangNode Decl::getClangNodeImpl() const {
 
 void Decl::setClangNode(ClangNode Node) {
   Bits.Decl.FromClang = true;
+  // TODO: Remove setClangNode and call setOriginatedFromClang instead
+  Bits.Decl.OriginatedFromClang = true;
   // The extra/preface memory is allocated by the importer.
   void **ptr = nullptr;
   switch (getKind()) {

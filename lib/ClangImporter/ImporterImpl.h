@@ -818,6 +818,9 @@ public:
   /// Import the given Clang source range into Swift.
   SourceRange importSourceRange(clang::SourceRange range);
 
+  /// Import the comment range from the given Clang declaration.
+  CharSourceRange importCommentRange(const clang::Decl *ClangDecl);
+
   /// Import the given Clang preprocessor macro as a Swift value decl.
   ///
   /// \p macroNode must be a MacroInfo or a ModuleMacro.

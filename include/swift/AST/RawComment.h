@@ -23,6 +23,11 @@ class SourceFile;
 class SourceManager;
 
 struct SingleRawComment {
+  enum class CommentType {
+    Doxygen,
+    Markup,
+  };
+
   enum class CommentKind {
     OrdinaryLine,  ///< Any normal // comments
     OrdinaryBlock, ///< Any normal /* */ comment
@@ -36,7 +41,8 @@ struct SingleRawComment {
   unsigned Kind : 8;
   unsigned ColumnIndent : 16;
 
-  SingleRawComment(CharSourceRange Range, const SourceManager &SourceMgr);
+  SingleRawComment(CharSourceRange Range, CommentType Type,
+                   const SourceManager &SourceMgr);
   SingleRawComment(StringRef RawText, unsigned ColumnIndent);
 
   SingleRawComment(const SingleRawComment &) = default;

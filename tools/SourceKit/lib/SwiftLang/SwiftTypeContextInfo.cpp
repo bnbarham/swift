@@ -118,17 +118,7 @@ void SwiftLangSupport::getExpressionContextInfo(
         memberElem.SourceTextLength = SS.size() - memberElem.SourceTextBegin;
 
         // DocBrief.
-        auto MaybeClangNode = member->getClangNode();
-        if (MaybeClangNode) {
-          if (auto *D = MaybeClangNode.getAsDecl()) {
-            const auto &ClangContext = D->getASTContext();
-            if (const clang::RawComment *RC =
-                    ClangContext.getRawCommentForAnyRedecl(D))
-              memberElem.BriefComment = RC->getBriefText(ClangContext);
-          }
-        } else {
-          memberElem.BriefComment = member->getBriefComment();
-        }
+        memberElem.BriefComment = member->getBriefComment();
       }
 
       SourceKit::TypeContextInfoItem Info;

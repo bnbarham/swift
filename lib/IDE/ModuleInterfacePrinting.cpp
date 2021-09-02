@@ -955,7 +955,8 @@ void ClangCommentPrinter::printDeclPost(const Decl *D,
     return;
 
   for (auto CommentText : PendingComments) {
-    *this << " " << ASTPrinter::sanitizeUtf8(CommentText);
+    *this << " ";
+    printSanitizedUTF8(CommentText);
   }
   PendingComments.clear();
   if (auto ClangN = swift::ide::getEffectiveClangNode(D))
@@ -1046,7 +1047,8 @@ void ClangCommentPrinter::printComment(StringRef RawText, unsigned StartCol) {
   trimLeadingWhitespaceFromLines(RawText, WhitespaceToTrim, Lines);
 
   for (auto Line : Lines) {
-    *this << ASTPrinter::sanitizeUtf8(Line) << "\n";
+    printSanitizedUTF8(Line);
+    *this << "\n";
     printIndent();
   }
 }

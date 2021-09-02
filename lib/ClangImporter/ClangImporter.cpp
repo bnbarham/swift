@@ -2262,6 +2262,31 @@ ClangImporter::Implementation::importSourceRange(clang::SourceRange range) {
                      importSourceLoc(range.getEnd()));
 }
 
+CharSourceRange
+ClangImporter::Implementation::importCommentRange(
+    const clang::Decl *ClangDecl) {
+  const clang::RawComment *RC =
+      getClangASTContext().getRawCommentForAnyRedecl(ClangDecl);
+  if (!RC)
+    return CharSourceRange();
+
+  auto &ClangCtx = getClangASTContext();
+  auto &ClangSM = ClangCtx.getSourceManager();
+  clang::CharSourceRange TokenRange =
+      clang::CharSourceRange::getTokenRange(RC->getSourceRange());
+  clang::CharSourceRange ClangRange =
+      clang::Lexer::makeFileCharRange(TokenRange,
+                                      ClangCtx.getSourceManager(),
+                                      ClangCtx.getLangOpts());
+  if (ClangRange.isInvalid())
+    return CharSourceRange();
+
+  auto Begin = ClangSM.getDecomposedLoc(ClangRange.getBegin());
+  auto End = ClangSM.getDecomposedLoc(ClangRange.getEnd());
+  return CharSourceRange(importSourceLoc(ClangRange.getBegin()),
+                         End.second - Begin.second);
+}
+
 #pragma mark Importing names
 
 clang::DeclarationName

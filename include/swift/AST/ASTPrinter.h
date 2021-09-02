@@ -327,8 +327,9 @@ public:
     printStructurePre(Kind, D);
   }
 
-  /// To sanitize a malformed utf8 string to a well-formed one.
-  static std::string sanitizeUtf8(StringRef Text);
+  /// Print the given \p Text but make sure to sanitize any malformed UTF8
+  /// sequences.
+  void printSanitizedUTF8(StringRef Text);
 
 private:
   virtual void anchor();

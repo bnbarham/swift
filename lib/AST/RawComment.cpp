@@ -35,7 +35,8 @@
 
 using namespace swift;
 
-static SingleRawComment::CommentKind getCommentKind(StringRef Comment) {
+static SingleRawComment::CommentKind getCommentKind(
+    StringRef Comment, SingleRawComment::CommentType Type) {
   assert(Comment.size() >= 2);
   assert(Comment[0] == '/');
 
@@ -43,36 +44,49 @@ static SingleRawComment::CommentKind getCommentKind(StringRef Comment) {
     if (Comment.size() < 3)
       return SingleRawComment::CommentKind::OrdinaryLine;
 
-    if (Comment[2] == '/') {
+    if (Comment[2] == '/')
       return SingleRawComment::CommentKind::LineDoc;
-    }
+    if (Comment[2] == '!' && Type == SingleRawComment::CommentType::Doxygen)
+      return SingleRawComment::CommentKind::LineDoc;
+
     return SingleRawComment::CommentKind::OrdinaryLine;
-  } else {
-    assert(Comment[1] == '*');
-    assert(Comment.size() >= 4);
-    if (Comment[2] == '*') {
-      return SingleRawComment::CommentKind::BlockDoc;
-    }
-    return SingleRawComment::CommentKind::OrdinaryBlock;
   }
+
+  assert(Comment[1] == '*');
+  assert(Comment.size() >= 4);
+
+  // 4 would be /**/ which should not be a doc comment
+  if (Comment.size() < 5)
+    return SingleRawComment::CommentKind::OrdinaryBlock;
+
+  if (Comment[2] == '*')
+    return SingleRawComment::CommentKind::BlockDoc;
+  if (Comment[2] == '!' && Type == SingleRawComment::CommentType::Doxygen)
+    return SingleRawComment::CommentKind::BlockDoc;
+
+  return SingleRawComment::CommentKind::OrdinaryBlock;
 }
 
-SingleRawComment::SingleRawComment(CharSourceRange Range,
+SingleRawComment::SingleRawComment(CharSourceRange Range, CommentType Type,
                                    const SourceManager &SourceMgr)
     : Range(Range), RawText(SourceMgr.extractText(Range)),
-      Kind(static_cast<unsigned>(getCommentKind(RawText))) {
+      Kind(static_cast<unsigned>(getCommentKind(RawText, Type))) {
   ColumnIndent = SourceMgr.getLineAndColumnInBuffer(Range.getStart()).second;
 }
 
+// This constructor is only used when \p RawText is known to be a comment, so just use Doxygen, which accepts all supported doc comment forms.
 SingleRawComment::SingleRawComment(StringRef RawText, unsigned ColumnIndent)
-    : RawText(RawText), Kind(static_cast<unsigned>(getCommentKind(RawText))),
+    : RawText(RawText),
+      Kind(static_cast<unsigned>(getCommentKind(RawText,
+                                                CommentType::Doxygen))),
       ColumnIndent(ColumnIndent) {}
 
 /// Converts a range of comments (ordinary or doc) to a \c RawComment with
 /// only the last range of doc comments. Gyb comments, ie. "// ###" are skipped
 /// entirely as if they did not exist (so two doc comments would still be
 /// merged if there was a gyb comment inbetween).
-static RawComment toRawComment(ASTContext &Context, CharSourceRange Range) {
+static RawComment toRawComment(ASTContext &Context, CharSourceRange Range,
+                               SingleRawComment::CommentType Type) {
   if (Range.isInvalid())
     return RawComment();
 
@@ -94,7 +108,7 @@ static RawComment toRawComment(ASTContext &Context, CharSourceRange Range) {
       break;
     assert(Tok.is(tok::comment));
 
-    auto SRC = SingleRawComment(Tok.getRange(), SM);
+    auto SRC = SingleRawComment(Tok.getRange(), Type, SM);
     unsigned Start =
         SM.getLineAndColumnInBuffer(Tok.getRange().getStart()).first;
     unsigned End = SM.getLineAndColumnInBuffer(Tok.getRange().getEnd()).first;
@@ -142,10 +156,15 @@ RawComment Decl::getRawComment(bool SerializedOK) const {
       return P.first;
   }
 
+  auto CommentType = SingleRawComment::CommentType::Markup;
+  if (originatedFromClang())
+    CommentType = SingleRawComment::CommentType::Doxygen;
+
   // Check the declaration itself.
   if (auto *Attr = getAttrs().getAttribute<RawDocCommentAttr>()) {
-    RawComment Result = toRawComment(Context, Attr->getCommentRange());
-    Context.setRawComment(this, Result, true);
+    RawComment Result = toRawComment(Context, Attr->getCommentRange(),
+                                     CommentType);
+    Context.setRawComment(this, Result, false);
     return Result;
   }
 
@@ -158,12 +177,13 @@ RawComment Decl::getRawComment(bool SerializedOK) const {
   switch (Unit->getKind()) {
   case FileUnitKind::SerializedAST: {
     if (SerializedOK) {
+      // .swiftsourceinfo
       auto *CachedLocs = getSerializedLocs();
       if (!CachedLocs->DocRanges.empty()) {
         SmallVector<SingleRawComment, 4> SRCs;
         for (const auto &Range : CachedLocs->DocRanges) {
           if (Range.isValid()) {
-            SRCs.push_back({Range, Context.SourceMgr});
+            SRCs.push_back({Range, CommentType, Context.SourceMgr});
           } else {
             // if we've run into an invalid range, don't bother trying to load
             // any of the other comments
@@ -180,6 +200,9 @@ RawComment Decl::getRawComment(bool SerializedOK) const {
       }
     }
 
+    // .swiftdoc
+    // Technically serialized but the full comment is contained in .swiftdoc
+    // and does not require loading a separate file buffer.
     if (Optional<CommentInfo> C = Unit->getCommentForDecl(this)) {
       Context.setRawComment(this, C->Raw, false);
       return C->Raw;

@@ -206,7 +206,7 @@ extension decl_extension_1 {
 /***/
 func emptyBlockDocComment() {}
 
-/**/
+/**/ // IS_DOC_NOT_ATTACHED
 func weirdBlockDocComment() {}
 
 /// docCommentWithGybLineNumber Aaa.
@@ -310,6 +310,6 @@ func unterminatedBlockDocComment() {}
 // CHECK-NEXT: comment_attach.swift:196:37: Accessor/decl_protocol_1.<setter for decl_protocol_1.propertyWithGetSet> RawComment=none
 // CHECK-NEXT: comment_attach.swift:203:1: Extension/ RawComment=[/// decl_extension_1 Aaa.\n]
 // CHECK-NEXT: comment_attach.swift:207:6: Func/emptyBlockDocComment RawComment=[/***/]
-// CHECK-NEXT: comment_attach.swift:210:6: Func/weirdBlockDocComment RawComment=[/**/]
+// CHECK-NEXT: comment_attach.swift:210:6: Func/weirdBlockDocComment RawComment=none
 // CHECK-NEXT: comment_attach.swift:217:6: Func/docCommentWithGybLineNumber RawComment=[/// docCommentWithGybLineNumber Aaa.\n/// Bbb.\n/// Ccc.\n]
 // CHECK-NEXT: custom.swuft:2001:6: Func/customSourceLocation RawComment=[/// Oooh, custom!\n]

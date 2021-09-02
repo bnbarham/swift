@@ -687,17 +687,7 @@ void CodeCompletionResultBuilder::setAssociatedDecl(const Decl *D) {
   else if (D->getAttrs().getSoftDeprecated(D->getASTContext()))
     setNotRecommended(NotRecommendedReason::SoftDeprecated);
 
-  if (D->getClangNode()) {
-    if (auto *ClangD = D->getClangDecl()) {
-      const auto &ClangContext = ClangD->getASTContext();
-      if (const clang::RawComment *RC =
-          ClangContext.getRawCommentForAnyRedecl(ClangD)) {
-        setBriefDocComment(RC->getBriefText(ClangContext));
-      }
-    }
-  } else {
-    setBriefDocComment(AssociatedDecl->getBriefComment());
-  }
+  setBriefDocComment(AssociatedDecl->getBriefComment());
 }
 
 namespace {

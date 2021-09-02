@@ -298,29 +298,23 @@ bool TypeTransformContext::isPrintingSynthesizedExtension() const {
   return !Decl.isNull();
 }
 
-std::string ASTPrinter::sanitizeUtf8(StringRef Text) {
-  llvm::SmallString<256> Builder;
-  Builder.reserve(Text.size());
-  const llvm::UTF8* Data = reinterpret_cast<const llvm::UTF8*>(Text.begin());
-  const llvm::UTF8* End = reinterpret_cast<const llvm::UTF8*>(Text.end());
+void ASTPrinter::printSanitizedUTF8(StringRef Text) {
   StringRef Replacement = u8"\ufffd";
-  while (Data < End) {
-    auto Step = llvm::getNumBytesForUTF8(*Data);
-    if (Data + Step > End) {
-      Builder.append(Replacement);
+  while (!Text.empty()) {
+    const llvm::UTF8 *Next = Text.bytes_begin();
+    auto Length = llvm::getNumBytesForUTF8(*Next);
+    if (Length > Text.size()) {
+      *this << Replacement;
       break;
     }
 
-    if (llvm::isLegalUTF8Sequence(Data, Data + Step)) {
-      Builder.append(Data, Data + Step);
-    } else {
+    if (llvm::isLegalUTF8Sequence(Next, Text.bytes_end()))
+      *this << Text.take_front(Length);
+    else
+      *this << Replacement;
 
-      // If malformed, add replacement characters.
-      Builder.append(Replacement);
-    }
-    Data += Step;
+    Text = Text.drop_front(Length);
   }
-  return std::string(Builder.str());
 }
 
 void ASTPrinter::anchor() {}
@@ -588,97 +582,53 @@ class PrintAST : public ASTVisitor<PrintAST> {
     Printer << Ctx.SourceMgr.extractText(Range);
   }
 
-  static std::string sanitizeClangDocCommentStyle(StringRef Line) {
-    static StringRef ClangStart = "/*!";
-    static StringRef SwiftStart = "/**";
-    auto Pos = Line.find(ClangStart);
-    if (Pos == StringRef::npos)
-      return Line.str();
-    StringRef Segment[2];
-    // The text before "/*!"
-    Segment[0] = Line.substr(0, Pos);
-    // The text after "/*!"
-    Segment[1] = Line.substr(Pos).substr(ClangStart.size());
-    // Only sanitize when "/*!" appears at the start of this line.
-    if (Segment[0].trim().empty()) {
-      return (llvm::Twine(Segment[0]) + SwiftStart + Segment[1]).str();
-    }
-    return Line.str();
-  }
-
-  void printClangDocumentationComment(const clang::Decl *D) {
-    const auto &ClangContext = D->getASTContext();
-    const clang::RawComment *RC = ClangContext.getRawCommentForAnyRedecl(D);
-    if (!RC)
+  void printDocumentationComment(const Decl *D) {
+    if (!Options.PrintDocumentationComments)
       return;
 
-    bool Invalid;
-    unsigned StartLocCol =
-        ClangContext.getSourceManager().getSpellingColumnNumber(
-            RC->getBeginLoc(), &Invalid);
-    if (Invalid)
-      StartLocCol = 0;
+    if (Options.CascadeDocComment)
+      D = getDocCommentProvidingDecl(D);
+    if (!D)
+      return;
+    RawComment RC = D->getRawComment(/*SerializedOK=*/true);
+    if (RC.isEmpty())
+      return;
 
-    unsigned WhitespaceToTrim = StartLocCol ? StartLocCol - 1 : 0;
-
-    SmallVector<StringRef, 8> Lines;
-
-    StringRef RawText =
-        RC->getRawText(ClangContext.getSourceManager()).rtrim("\n\r");
-    trimLeadingWhitespaceFromLines(RawText, WhitespaceToTrim, Lines);
-    bool FirstLine = true;
-    for (auto Line : Lines) {
-      if (FirstLine)
-        Printer << sanitizeClangDocCommentStyle(ASTPrinter::sanitizeUtf8(Line));
-      else
-        Printer << ASTPrinter::sanitizeUtf8(Line);
-      Printer.printNewline();
-      FirstLine = false;
-    }
-  }
-
-  void printRawComment(RawComment RC) {
     indent();
 
     SmallVector<StringRef, 8> Lines;
-    for (const auto &SRC : RC.Comments) {
+    for (const SingleRawComment &SRC : RC.Comments) {
       Lines.clear();
 
       StringRef RawText = SRC.RawText.rtrim("\n\r");
       unsigned WhitespaceToTrim = SRC.ColumnIndent - 1;
       trimLeadingWhitespaceFromLines(RawText, WhitespaceToTrim, Lines);
 
-      for (auto Line : Lines) {
-        Printer << Line;
+      bool FirstLine = true;
+      for (StringRef Line : Lines) {
+        if (FirstLine) {
+          FirstLine = false;
+          if (D->originatedFromClang()) {
+            // Convert doxygen comment markers into markdown comments
+            if (Line.startswith("//!") || Line.startswith("/*!")) {
+              Printer << Line[0] << Line[1] << Line[1];
+              Line = Line.drop_front(3);
+
+              // Trailing comment, print as a preceding comment and remove the
+              // additional doxygen marker
+              if (Line.startswith("<"))
+                Line = Line.drop_front();
+            }
+          }
+        }
+
+        if (D->originatedFromClang())
+          Printer.printSanitizedUTF8(Line);
+        else
+          Printer << Line;
         Printer.printNewline();
       }
     }
-  }
-
-  void printSwiftDocumentationComment(const Decl *D) {
-    if (Options.CascadeDocComment)
-      D = getDocCommentProvidingDecl(D);
-    if (!D)
-      return;
-    auto RC = D->getRawComment();
-    if (RC.isEmpty())
-      return;
-    printRawComment(RC);
-  }
-
-  void printDocumentationComment(const Decl *D) {
-    if (!Options.PrintDocumentationComments)
-      return;
-
-    // Try to print a comment from Clang.
-    auto MaybeClangNode = D->getClangNode();
-    if (MaybeClangNode) {
-      if (auto *CD = MaybeClangNode.getAsDecl())
-        printClangDocumentationComment(CD);
-      return;
-    }
-
-    printSwiftDocumentationComment(D);
   }
 
   void printStaticKeyword(StaticSpellingKind StaticSpelling) {
@@ -975,22 +925,17 @@ public:
       Printer.setSynthesizedTarget(Options.TransformContext->getDecl());
     }
 
-    // We want to print a newline before doc comments.  Swift code already
+    // We want to print a newline before doc comments. Swift code already
     // handles this, but we need to insert it for clang doc comments when not
     // printing other clang comments. Do it now so the printDeclPre callback
     // happens after the newline.
     if (Options.PrintDocumentationComments &&
         !Options.PrintRegularClangComments &&
-        D->hasClangNode()) {
-      auto clangNode = D->getClangNode();
-      auto clangDecl = clangNode.getAsDecl();
-      if (clangDecl &&
-          clangDecl->getASTContext().getRawCommentForAnyRedecl(clangDecl)) {
-        Printer.printNewline();
-        indent();
-      }
+        D->originatedFromClang() &&
+        !D->getRawComment(/*SerializedOK=*/true).isEmpty()) {
+      Printer.printNewline();
+      indent();
     }
-
     
     Printer.callPrintDeclPre(D, Options.BracketOptions);
 

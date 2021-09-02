@@ -8626,6 +8626,19 @@ void ClangImporter::Implementation::importAttributes(
   if (auto func = dyn_cast<AbstractFunctionDecl>(MappedDecl))
     isAsync = func->hasAsync();
 
+  // Attributes to provide information about the Clang decl from the mapped
+  // Swift decl, without requiring access to the Clang decl itself. Only the
+  // importer should have access to the underlying Clang AST.
+  //
+  // Only add if the underlying Clang decl is the same as the current one (ie.
+  // don't add duplicate attributes for a superfluous typedef).
+  if (MappedDecl->getClangDecl() == ClangDecl) {
+    CharSourceRange CommentRange = importCommentRange(ClangDecl);
+    if (CommentRange.isValid())
+      MappedDecl->getAttrs()
+          .add(new (SwiftContext) RawDocCommentAttr(CommentRange));
+  }
+
   // Scan through Clang attributes and map them onto Swift
   // equivalents.
   PatternBindingInitializer *initContext = nullptr;

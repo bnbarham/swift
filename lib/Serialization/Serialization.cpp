@@ -2384,6 +2384,7 @@ class Serializer::DeclSerializer : public DeclVisitor<DeclSerializer> {
     case DAK_RestatedObjCConformance:
     case DAK_ClangImporterSynthesizedType:
     case DAK_PrivateImport:
+    case DAK_ClangDetails:
       llvm_unreachable("cannot serialize attribute");
 
     case DAK_Count:

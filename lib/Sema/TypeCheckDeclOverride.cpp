@@ -1448,6 +1448,7 @@ namespace  {
     UNINTERESTING_ATTR(AlwaysEmitIntoClient)
     UNINTERESTING_ATTR(Borrowed)
     UNINTERESTING_ATTR(CDecl)
+    UNINTERESTING_ATTR(ClangDetails)
     UNINTERESTING_ATTR(Consuming)
     UNINTERESTING_ATTR(Dynamic)
     UNINTERESTING_ATTR(DynamicCallable)

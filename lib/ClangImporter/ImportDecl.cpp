@@ -8604,6 +8604,20 @@ static bool isUsingMacroName(clang::SourceManager &SM,
   return content == MacroName;
 }
 
+void ClangImporter::Implementation::importClangDetails(
+    const clang::NamedDecl *ClangDecl, Decl *MappedDecl) {
+  bool IsObjCDirect = false;
+
+  if (auto method = dyn_cast<clang::ObjCMethodDecl>(ClangDecl)) {
+    IsObjCDirect = method->isDirectMethod();
+  } else if (auto property = dyn_cast<clang::ObjCPropertyDecl>(ClangDecl)) {
+    IsObjCDirect = property->isDirectProperty();
+  }
+
+  auto *Attr = new (SwiftContext) ClangDetailsAttr(IsObjCDirect);
+  MappedDecl->getAttrs().add(Attr);
+}
+
 /// Import Clang attributes as Swift attributes.
 void ClangImporter::Implementation::importAttributes(
     const clang::NamedDecl *ClangDecl,
@@ -8633,6 +8647,8 @@ void ClangImporter::Implementation::importAttributes(
   // Only add if the underlying Clang decl is the same as the current one (ie.
   // don't add duplicate attributes for a superfluous typedef).
   if (MappedDecl->getClangDecl() == ClangDecl) {
+    importClangDetails(ClangDecl, MappedDecl);
+
     CharSourceRange CommentRange = importCommentRange(ClangDecl);
     if (CommentRange.isValid())
       MappedDecl->getAttrs()
@@ -8870,8 +8886,12 @@ void ClangImporter::Implementation::importAttributes(
     }
   }
 
+  // If the declaration is unavailable, we're done.
+  if (AnyUnavailable)
+    return;
+
   if (auto method = dyn_cast<clang::ObjCMethodDecl>(ClangDecl)) {
-    if (method->isDirectMethod() && !AnyUnavailable) {
+    if (method->isDirectMethod()) {
       assert(isa<AbstractFunctionDecl>(MappedDecl) &&
              "objc_direct declarations are expected to be an AbstractFunctionDecl");
       MappedDecl->getAttrs().add(new (C) FinalAttr(/*IsImplicit=*/true));
@@ -8881,10 +8901,6 @@ void ClangImporter::Implementation::importAttributes(
       }
     }
   }
-
-  // If the declaration is unavailable, we're done.
-  if (AnyUnavailable)
-    return;
 
   if (auto ID = dyn_cast<clang::ObjCInterfaceDecl>(ClangDecl)) {
     // Ban NSInvocation.

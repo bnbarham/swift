@@ -907,7 +907,8 @@ public:
   /// \returns the brief comment attached to this declaration.
   StringRef getBriefComment() const;
 
-  // TODO: Remove hasClangNode when there are no more uses
+  // TODO: Remove hasClangNode when there are no more uses. Consider replacing
+  //       with a check for ClangDetailsAttr instead?
   /// Returns true if this declaration was imported from a Clang AST node.
   bool originatedFromClang() const {
     return Bits.Decl.OriginatedFromClang;
@@ -915,6 +916,12 @@ public:
 
   void setOriginatedFromClang(bool OriginatedFromClang) {
     Bits.Decl.OriginatedFromClang = OriginatedFromClang;
+  }
+
+  /// Retrieve details about the underlying Clang AST node if this was a decl
+  /// that originated from Clang.
+  const ClangDetailsAttr *getClangDetails() const {
+    return getAttrs().getAttribute<ClangDetailsAttr>();
   }
 
   /// Returns true if there is a Clang AST node associated

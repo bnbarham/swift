@@ -761,6 +761,7 @@ bool DeclAttribute::printImpl(ASTPrinter &Printer, const PrintOptions &Options,
   case DAK_Rethrows:
   case DAK_Reasync:
   case DAK_Infix:
+  case DAK_ClangDetails:
     return false;
   case DAK_Override: {
     if (!Options.IsForSwiftInterface)
@@ -1262,6 +1263,8 @@ StringRef DeclAttribute::getAttrName() const {
     return "derivative";
   case DAK_Transpose:
     return "transpose";
+  case DAK_ClangDetails:
+    return "<<clang details>>";
   }
   llvm_unreachable("bad DeclAttrKind");
 }

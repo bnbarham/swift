@@ -840,6 +840,10 @@ public:
   /// in the given module.
   SourceFile &getClangSwiftAttrSourceFile(ModuleDecl &module);
 
+  /// Import Clang decl details required by libraries outside the importer,
+  /// ie. comments and the various \c ClangDetailsAttr fields.
+  void importClangDetails(const clang::NamedDecl *ClangDecl, Decl *MappedDecl);
+
   /// Import attributes from the given Clang declaration to its Swift
   /// equivalent.
   ///

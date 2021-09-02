@@ -670,6 +670,13 @@ SIMPLE_DECL_ATTR(_assemblyVision, EmitAssemblyVisionRemarks,
   ABIStableToAdd | ABIStableToRemove | APIStableToAdd | APIStableToRemove,
   120)
 
+// TODO: Serialize
+DECL_ATTR(__clangDetails, ClangDetails,
+  OnAnyDecl |
+  LongAttribute | RejectByParser | UserInaccessible |
+  ABIStableToAdd | ABIStableToRemove | APIStableToAdd | APIStableToRemove |
+  NotSerialized, 121)
+
 // If you're adding a new underscored attribute here, please document it in
 // docs/ReferenceGuides/UnderscoredAttributes.md.
 

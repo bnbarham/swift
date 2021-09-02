@@ -1876,6 +1876,8 @@ namespace decls_block {
     = BCRecordLayout<RestatedObjCConformance_DECL_ATTR>;
   using ClangImporterSynthesizedTypeDeclAttrLayout
     = BCRecordLayout<ClangImporterSynthesizedType_DECL_ATTR>;
+  using ClangDetailsDeclAttrLayout
+    = BCRecordLayout<ClangDetails_DECL_ATTR>;
   using PrivateImportDeclAttrLayout = BCRecordLayout<PrivateImport_DECL_ATTR>;
   using ProjectedValuePropertyDeclAttrLayout = BCRecordLayout<
       ProjectedValueProperty_DECL_ATTR,

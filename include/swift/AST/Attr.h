@@ -171,6 +171,10 @@ protected:
                           NumKnownProtocolKindBits,
       kind : NumKnownProtocolKindBits
     );
+
+    SWIFT_INLINE_BITFIELD(ClangDetailsAttr, DeclAttribute, 1,
+      IsObjCDirect : 1
+    );
   } Bits;
 
   DeclAttribute *Next = nullptr;
@@ -2012,6 +2016,27 @@ public:
 
   static bool classof(const DeclAttribute *DA) {
     return DA->getKind() == DAK_Transpose;
+  }
+};
+
+/// Details about the imported Clang decl, ie. extra information required by
+/// non-ClangImporter libraries that doesn't make sense to have on the Swift
+/// decls themselves.
+class ClangDetailsAttr : public DeclAttribute {
+public:
+  ClangDetailsAttr(bool IsObjCDirect)
+      : DeclAttribute(DAK_ClangDetails, SourceLoc(), SourceRange(),
+                      /*Implicit=*/true) {
+    Bits.ClangDetailsAttr.IsObjCDirect = IsObjCDirect;
+  }
+
+  /// Whether the imported function is objc_direct
+  bool isObjCDirect() const {
+    return Bits.ClangDetailsAttr.IsObjCDirect;
+  }
+
+  static bool classof(const DeclAttribute *DA) {
+    return DA->getKind() == DAK_ClangDetails;
   }
 };
 

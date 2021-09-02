@@ -1641,6 +1641,7 @@ bool Parser::parseNewDeclAttribute(DeclAttributes &Attributes, SourceLoc AtLoc,
   case DAK_SynthesizedProtocol:
   case DAK_ClangImporterSynthesizedType:
   case DAK_Custom:
+  case DAK_ClangDetails:
     llvm_unreachable("virtual attributes should not be parsed "
                      "by attribute parsing code");
   case DAK_SetterAccess:

@@ -1896,11 +1896,6 @@ AnyObjectLookupRequest::evaluate(Evaluator &evaluator, const DeclContext *dc,
   using namespace namelookup;
   QualifiedLookupResult decls;
 
-#if SWIFT_BUILD_ONLY_SYNTAXPARSERLIB
-  // Avoid calling `clang::ObjCMethodDecl::isDirectMethod()`.
-  return decls;
-#endif
-
   // Type-only lookup won't find anything on AnyObject.
   if (options & NL_OnlyTypes)
     return decls;
@@ -1921,14 +1916,9 @@ AnyObjectLookupRequest::evaluate(Evaluator &evaluator, const DeclContext *dc,
       continue;
 
     // If the declaration is objc_direct, it cannot be called dynamically.
-    if (auto clangDecl = decl->getClangDecl()) {
-      if (auto objCMethod = dyn_cast<clang::ObjCMethodDecl>(clangDecl)) {
-        if (objCMethod->isDirectMethod())
-          continue;
-      } else if (auto objCProperty = dyn_cast<clang::ObjCPropertyDecl>(clangDecl)) {
-        if (objCProperty->isDirectProperty())
-          continue;
-      }
+    if (const ClangDetailsAttr *details = decl->getClangDetails()) {
+      if (details->isObjCDirect())
+        continue;
     }
 
     // If the declaration has an override, name lookup will also have

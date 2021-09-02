@@ -1063,13 +1063,8 @@ public:
 
     auto subs = e->getDeclRef().getSubstitutions();
 
-    bool isObjCDirect = false;
-    if (auto objcDecl = dyn_cast_or_null<clang::ObjCMethodDecl>(
-            afd->getClangDecl())) {
-      isObjCDirect = objcDecl->isDirectMethod();
-    }
-
-    if (isObjCDirect) {
+    const ClangDetailsAttr *details = afd->getClangDetails();
+    if (details && details->isObjCDirect()) {
       setCallee(Callee::forDirect(SGF, constant, subs, e));
     } else {
       setCallee(Callee::forClassMethod(SGF, constant, subs, e));
@@ -5338,14 +5333,9 @@ static Callee getBaseAccessorFunctionRef(SILGenFunction &SGF,
     }
   }
 
-  bool isObjCDirect = false;
-  if (auto objcDecl = dyn_cast_or_null<clang::ObjCMethodDecl>(
-          decl->getClangDecl())) {
-    isObjCDirect = objcDecl->isDirectMethod();
-  }
-
   // Dispatch in a struct/enum or to a final method is always direct.
-  if (!isClassDispatch || isObjCDirect)
+  const ClangDetailsAttr *details = decl->getClangDetails();
+  if (!isClassDispatch || (details && details->isObjCDirect()))
     return Callee::forDirect(SGF, constant, subs, loc);
 
   // Otherwise, if we have a non-final class dispatch to a normal method,

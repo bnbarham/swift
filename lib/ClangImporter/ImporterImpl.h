@@ -840,6 +840,10 @@ public:
   /// in the given module.
   SourceFile &getClangSwiftAttrSourceFile(ModuleDecl &module);
 
+  /// Import Clang macro details required by libraries outside the importer,
+  /// ie. its USR.
+  void importClangDetails(const clang::MacroInfo *macro, ValueDecl *mappedDecl);
+
   /// Import Clang decl details required by libraries outside the importer,
   /// ie. comments and the various \c ClangDetailsAttr fields.
   void importClangDetails(const clang::NamedDecl *ClangDecl, Decl *MappedDecl);

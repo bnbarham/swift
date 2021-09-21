@@ -60,7 +60,7 @@ static bool printObjCUSRFragment(const ValueDecl *D, StringRef ObjCName,
   // originating from ObjC code (ObjC module or the bridging header) then this
   // will be empty.
   StringRef ModuleName;
-  if (!D->hasClangNode())
+  if (!D->originatedFromClang())
     ModuleName = D->getModuleContext()->getNameStr();
 
   if (isa<ClassDecl>(D)) {
@@ -181,62 +181,20 @@ swift::USRGenerationRequest::evaluate(Evaluator &evaluator,
   if (isa<ModuleDecl>(D))
     return std::string(); // Ignore.
 
-  auto interpretAsClangNode = [](const ValueDecl *D)->ClangNode {
-    ClangNode ClangN = D->getClangNode();
-    if (auto ClangD = ClangN.getAsDecl()) {
-      // NSErrorDomain causes the clang enum to be imported like this:
-      //
-      // struct MyError {
-      //     enum Code : Int32 {
-      //         case errFirst
-      //         case errSecond
-      //     }
-      //     static var errFirst: MyError.Code { get }
-      //     static var errSecond: MyError.Code { get }
-      // }
-      //
-      // The clang enum constants are associated with both the static vars and
-      // the enum cases.
-      // But we want unique USRs for the above symbols, so use the clang USR
-      // for the enum cases, and the Swift USR for the vars.
-      //
-      if (auto *ClangEnumConst = dyn_cast<clang::EnumConstantDecl>(ClangD)) {
-        if (auto *ClangEnum = dyn_cast<clang::EnumDecl>(ClangEnumConst->getDeclContext())) {
-          if (ClangEnum->hasAttr<clang::NSErrorDomainAttr>() && isa<VarDecl>(D))
-            return ClangNode();
-        }
-      }
+  // If we end up generating this instead then make sure to check for
+  // NSErrorDomain. The `ClangImporterSynthesizedTypeAttr` can be used there,
+  // ie. use the Swift USR if it's a VarDecl and its parent is a StructDecl
+  // with a `ClangImporterSynthesizedTypeAttr` of kind `Kind::NSErrorWrapper*`.
+  if (D->originatedFromClang()) {
+    if (const auto *Attr = D->getAttrs().getAttribute<ClangDetailsAttr>()) {
+      if (!Attr->USR.empty())
+        return Attr->USR.str();
     }
-    return ClangN;
-  };
-
-  llvm::SmallString<128> Buffer;
-  llvm::raw_svector_ostream OS(Buffer);
-
-  if (ClangNode ClangN = interpretAsClangNode(D)) {
-    if (auto ClangD = ClangN.getAsDecl()) {
-      bool Ignore = clang::index::generateUSRForDecl(ClangD, Buffer);
-      if (!Ignore) {
-        return std::string(Buffer.str());
-      } else {
-        return std::string();
-      }
-    }
-
-    auto &Importer = *D->getASTContext().getClangModuleLoader();
-
-    auto ClangMacroInfo = ClangN.getAsMacro();
-    bool Ignore = clang::index::generateUSRForMacro(
-        D->getBaseIdentifier().str(),
-        ClangMacroInfo->getDefinitionLoc(),
-        Importer.getClangASTContext().getSourceManager(), Buffer);
-    if (!Ignore)
-      return std::string(Buffer.str());
-    else
-      return std::string();
   }
 
   if (shouldUseObjCUSR(D)) {
+    llvm::SmallString<128> Buffer;
+    llvm::raw_svector_ostream OS(Buffer);
     if (printObjCUSR(D, OS)) {
       return std::string();
     } else {

@@ -2024,6 +2024,14 @@ public:
 /// decls themselves.
 class ClangDetailsAttr : public DeclAttribute {
 public:
+  /// USR of the underlying decl.
+  ///
+  /// Can likely change this to be generated on the fly, similar to
+  /// \c printObjCUSR (which currently generates the incorrect USR for a free
+  /// function). Given the addition of C++ as well, just generate and add for
+  /// now though.
+  const StringRef USR;
+
   /// The attached doc comment, parsed and formatted into XML.
   ///
   /// Parsing currently requires the underlying Clang decl, it's possible we
@@ -2031,9 +2039,9 @@ public:
   /// entirely. Just generate it for all decls for now.
   const StringRef XMLComment;
 
-  ClangDetailsAttr(StringRef XMLComment, bool IsObjCDirect)
+  ClangDetailsAttr(StringRef USR, StringRef XMLComment, bool IsObjCDirect)
       : DeclAttribute(DAK_ClangDetails, SourceLoc(), SourceRange(),
-                      /*Implicit=*/true), XMLComment(XMLComment) {
+                      /*Implicit=*/true), USR(USR), XMLComment(XMLComment) {
     Bits.ClangDetailsAttr.IsObjCDirect = IsObjCDirect;
   }
 

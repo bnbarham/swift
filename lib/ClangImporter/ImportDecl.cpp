@@ -56,6 +56,7 @@
 #include "clang/Basic/Specifiers.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Index/CommentToXML.h"
+#include "clang/Index/USRGeneration.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/Lookup.h"
 
@@ -8605,16 +8606,52 @@ static bool isUsingMacroName(clang::SourceManager &SM,
   return content == MacroName;
 }
 
+static bool shouldAddUSR(const clang::NamedDecl *ClangDecl, Decl *MappedDecl) {
+  // NSErrorDomain causes a Clang enum to be imported like this:
+  // struct MyError {
+  //     enum Code : Int32 {
+  //         case errFirst
+  //         case errSecond
+  //     }
+  //     static var errFirst: MyError.Code { get }
+  //     static var errSecond: MyError.Code { get }
+  // }
+  //
+  // Where both the static vars and enum cases have the EnumConstantDecl as
+  // their Clang decl. We want unique USRs for these though, so only use the
+  // Clang USR for the enum cases.
+  if (auto *ClangEnumConst = dyn_cast<clang::EnumConstantDecl>(ClangDecl)) {
+    if (auto *ClangEnum =
+        dyn_cast<clang::EnumDecl>(ClangEnumConst->getDeclContext())) {
+      if (ClangEnum->hasAttr<clang::NSErrorDomainAttr>() &&
+          isa<VarDecl>(MappedDecl))
+        return false;
+    }
+  }
+  return true;
+}
+
 void ClangImporter::Implementation::importClangDetails(
     const clang::NamedDecl *ClangDecl, Decl *MappedDecl) {
+  llvm::SmallString<1024> Buffer;
+
+  StringRef USR;
+  if (shouldAddUSR(ClangDecl, MappedDecl)) {
+    bool Ignore = clang::index::generateUSRForDecl(ClangDecl, Buffer);
+    if (!Ignore) {
+      USR = SwiftContext.AllocateCopy(Buffer.str());
+      Buffer.clear();
+    }
+  }
+
   StringRef XMLComment;
   if (const clang::comments::FullComment *FC =
       getClangASTContext().getCommentForDecl(ClangDecl, /*PP=*/nullptr)) {
     // TODO: Why is this not just a namespace?
     clang::index::CommentToXMLConverter Converter;
-    SmallString<1024> XML;
-    Converter.convertCommentToXML(FC, XML, getClangASTContext());
-    XMLComment = SwiftContext.AllocateCopy(XML.str());
+    Converter.convertCommentToXML(FC, Buffer, getClangASTContext());
+    XMLComment = SwiftContext.AllocateCopy(Buffer.str());
+    Buffer.clear();
   }
 
   bool IsObjCDirect = false;
@@ -8624,7 +8661,8 @@ void ClangImporter::Implementation::importClangDetails(
     IsObjCDirect = property->isDirectProperty();
   }
 
-  auto *Attr = new (SwiftContext) ClangDetailsAttr(XMLComment, IsObjCDirect);
+  auto *Attr = new (SwiftContext) ClangDetailsAttr(USR, XMLComment,
+                                                   IsObjCDirect);
   MappedDecl->getAttrs().add(Attr);
 }
 

@@ -19,6 +19,7 @@
 #include "llvm/ADT/SmallString.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Expr.h"
+#include "clang/Index/USRGeneration.h"
 #include "clang/Lex/MacroInfo.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/DelayedDiagnostic.h"
@@ -644,6 +645,22 @@ static ValueDecl *importMacro(ClangImporter::Implementation &impl,
   return nullptr;
 }
 
+void ClangImporter::Implementation::importClangDetails(
+    const clang::MacroInfo *macro, ValueDecl *mappedDecl) {
+  llvm::SmallString<128> Buffer;
+
+  bool Ignore = clang::index::generateUSRForMacro(
+      mappedDecl->getBaseIdentifier().str(), macro->getDefinitionLoc(),
+      getClangASTContext().getSourceManager(), Buffer);
+  if (!Ignore) {
+    StringRef USR = SwiftContext.AllocateCopy(Buffer.str());
+    Buffer.clear();
+
+    auto *Attr = new (SwiftContext) ClangDetailsAttr(USR, StringRef(), false);
+    mappedDecl->getAttrs().add(Attr);
+  }
+}
+
 ValueDecl *ClangImporter::Implementation::importMacro(Identifier name,
                                                       ClangNode macroNode) {
   const clang::MacroInfo *macro = macroNode.getAsMacro();
@@ -705,6 +722,8 @@ ValueDecl *ClangImporter::Implementation::importMacro(Identifier name,
   // outside chance more macros with the same name have been imported
   // re-entrantly since this method started.
   if (valueDecl) {
+    importClangDetails(macro, valueDecl);
+
     auto entryIter = llvm::find_if(llvm::reverse(ImportedMacros[name]),
         [macro](std::pair<const clang::MacroInfo *, ValueDecl *> entry) {
       return entry.first == macro;

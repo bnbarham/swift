@@ -378,6 +378,8 @@ SwiftInterfaceGenContext::create(StringRef DocumentName,
     return nullptr;
   }
 
+  registerIDERequestFunctions(CI.getASTContext().evaluator);
+
   ASTContext &Ctx = CI.getASTContext();
   CloseClangModuleFiles scopedCloseFiles(*Ctx.getClangModuleLoader());
 
@@ -436,8 +438,10 @@ SwiftInterfaceGenContext::createForTypeInterface(CompilerInvocation Invocation,
     ErrorMsg = "Error during invocation setup";
     return nullptr;
   }
-  registerIDETypeCheckRequestFunctions(CI.getASTContext().evaluator);
+
+  registerIDERequestFunctions(CI.getASTContext().evaluator);
   CI.performSema();
+
   ASTContext &Ctx = CI.getASTContext();
   CloseClangModuleFiles scopedCloseFiles(*Ctx.getClangModuleLoader());
 

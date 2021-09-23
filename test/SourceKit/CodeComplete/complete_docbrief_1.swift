@@ -37,7 +37,7 @@ func test() {
 // CHECK-NEXT:       key.context: source.codecompletion.context.superclass,
 // CHECK-NEXT:       key.typerelation: source.codecompletion.typerelation.unknown,
 // CHECK-NEXT:       key.num_bytes_to_erase: 0,
-// CHECK-NEXT:       key.associated_usrs: "s:12DocBriefTest1PPAAE3baryyF",
+// CHECK-NEXT:       key.associated_usrs: "s:12DocBriefTest1PPAAE3baryyF s:12DocBriefTest1PP3baryyF",
 // CHECK-NEXT:       key.modulename: "DocBriefTest"
 // CHECK-NEXT:     },
 // CHECK-NEXT:     {

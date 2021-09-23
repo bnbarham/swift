@@ -1393,6 +1393,13 @@ private:
       clang::NamedDecl *decl, importer::ImportedName newName,
       importer::ImportNameVersion nameVersion, ExtensionDecl *ext);
 
+  /// Map the requirement to its witness
+  Witness resolveWitness(NormalProtocolConformance *conformance,
+                         ValueDecl *requirement);
+
+  /// Complete the requirement -> witness mapping
+  void finishWitnessMapping(NormalProtocolConformance *conformance);
+
 public:
   void
   loadAllConformances(

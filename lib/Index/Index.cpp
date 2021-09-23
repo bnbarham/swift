@@ -946,8 +946,20 @@ bool IndexSwiftASTWalker::startEntityDecl(ValueDecl *D) {
       return false;
   }
 
-  for (auto Overriden: collectAllOverriddenDecls(D, /*IncludeProtocolReqs=*/false)) {
-    addRelation(Info, (SymbolRoleSet) SymbolRole::RelationOverrideOf, Overriden);
+  // collectAllOverriddenDecls is expensive since it queries all protocol
+  // requirements. To avoid this we instead only query for the local
+  // conformances on a DeclContext and add them to ExplicitWitnesses, which we
+  // then handle below.
+  //
+  // We still need the actual overrides as well as any functions that D is the
+  // default implementation for though, so add those here.
+  for (ValueDecl *Overridden : D->getOverriddenDecls()) {
+    addRelation(Info, (SymbolRoleSet) SymbolRole::RelationOverrideOf,
+                Overridden);
+  }
+  for (ValueDecl *DefaultOf : collectProvidedImplementations(D)) {
+    addRelation(Info, (SymbolRoleSet) SymbolRole::RelationOverrideOf,
+                DefaultOf);
   }
 
   if (auto Parent = getParentDecl()) {

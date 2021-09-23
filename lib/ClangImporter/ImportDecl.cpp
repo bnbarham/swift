@@ -8638,20 +8638,18 @@ void ClangImporter::Implementation::importClangDetails(
   StringRef USR;
   if (shouldAddUSR(ClangDecl, MappedDecl)) {
     bool Ignore = clang::index::generateUSRForDecl(ClangDecl, Buffer);
-    if (!Ignore) {
+    if (!Ignore)
       USR = SwiftContext.AllocateCopy(Buffer.str());
-      Buffer.clear();
-    }
   }
 
   StringRef XMLComment;
   if (const clang::comments::FullComment *FC =
       getClangASTContext().getCommentForDecl(ClangDecl, /*PP=*/nullptr)) {
+    Buffer.clear();
     // TODO: Why is this not just a namespace?
     clang::index::CommentToXMLConverter Converter;
     Converter.convertCommentToXML(FC, Buffer, getClangASTContext());
     XMLComment = SwiftContext.AllocateCopy(Buffer.str());
-    Buffer.clear();
   }
 
   bool IsObjCDirect = false;
@@ -8662,6 +8660,7 @@ void ClangImporter::Implementation::importClangDetails(
   }
 
   auto *Attr = new (SwiftContext) ClangDetailsAttr(USR, XMLComment,
+                                                   /*IsMacro=*/false,
                                                    IsObjCDirect);
   MappedDecl->getAttrs().add(Attr);
 }
@@ -9224,28 +9223,53 @@ static void finishTypeWitnesses(
   }
 }
 
-/// Create witnesses for requirements not already met.
-static void finishMissingOptionalWitnesses(
+Witness ClangImporter::Implementation::resolveWitness(
+    NormalProtocolConformance *conformance, ValueDecl *requirement) {
+  if (auto func = dyn_cast<AbstractFunctionDecl>(requirement)){
+    // For an optional requirement, record an empty witness:
+    // we'll end up querying this at runtime.
+    auto Attrs = func->getAttrs();
+    if (Attrs.hasAttribute<OptionalAttr>())
+      return Witness();
+  }
+
+  auto *clangReq = dyn_cast<clang::ObjCMethodDecl>(requirement->getClangDecl());
+  if (!clangReq)
+    return requirement;
+
+  NominalTypeDecl *conforming = conformance->getType()->getAnyNominal();
+  auto *clangConforming = dyn_cast_or_null<clang::ObjCContainerDecl>(
+      conforming->getClangDecl());
+  if (!clangConforming)
+    return requirement;
+
+  clang::ObjCMethodDecl *clangWitness =
+      clangConforming->getMethod(clangReq->getSelector(),
+                                 clangReq->isInstanceMethod(),
+                                 /*AllowHidden=*/true);
+  if (!clangWitness)
+    return requirement;
+
+  auto *importedWitness = dyn_cast_or_null<ValueDecl>(
+      importDeclCached(clangWitness, CurrentVersion));
+  if (!importedWitness)
+    return requirement;
+
+  return importedWitness;
+}
+
+void ClangImporter::Implementation::finishWitnessMapping(
     NormalProtocolConformance *conformance) {
   auto *proto = conformance->getProtocol();
 
-  for (auto req : proto->getMembers()) {
-    auto valueReq = dyn_cast<ValueDecl>(req);
+  for (Decl *req : proto->getMembers()) {
+    auto *valueReq = dyn_cast<ValueDecl>(req);
     if (!valueReq)
       continue;
 
     if (!conformance->hasWitness(valueReq)) {
-      if (auto func = dyn_cast<AbstractFunctionDecl>(valueReq)){
-        // For an optional requirement, record an empty witness:
-        // we'll end up querying this at runtime.
-        auto Attrs = func->getAttrs();
-        if (Attrs.hasAttribute<OptionalAttr>()) {
-          conformance->setWitness(valueReq, Witness());
-          continue;
-        }
-      }
-
-      conformance->setWitness(valueReq, valueReq);
+      Witness witness = resolveWitness(conformance, valueReq);
+      conformance->setWitness(valueReq, witness);
     } else {
       // An initializer that conforms to a requirement is required.
       auto witness = conformance->getWitness(valueReq).getDecl();
@@ -9278,7 +9302,7 @@ void ClangImporter::Implementation::finishNormalConformance(
   assert(conformance->isComplete());
   conformance->setState(ProtocolConformanceState::Incomplete);
 
-  finishMissingOptionalWitnesses(conformance);
+  finishWitnessMapping(conformance);
 
   conformance->setState(ProtocolConformanceState::Complete);
 }

@@ -241,22 +241,12 @@ namespace swift {
 
   Type getResultTypeOfKeypathDynamicMember(SubscriptDecl *subscript);
 
-  /// Collect all the protocol requirements that a given declaration can
-  ///   provide default implementations for. VD is a declaration in extension
-  ///   declaration. Scratch is the buffer to collect those protocol
-  ///   requirements.
-  ///
-  /// \returns the slice of Scratch
-  ArrayRef<ValueDecl*>
-  canDeclProvideDefaultImplementationFor(ValueDecl* VD);
+  /// Collect decls that \c VD provides the default implementation for.
+  ArrayRef<ValueDecl *> collectProvidedImplementations(const ValueDecl* VD);
 
-  /// Get decls that the given decl overrides, protocol requirements that
-  ///   it serves as a default implementation of, and optionally protocol
-  ///   requirements it satisfies in a conforming class
-  ArrayRef<ValueDecl*>
-  collectAllOverriddenDecls(ValueDecl *VD,
-                            bool IncludeProtocolRequirements = true,
-                            bool Transitive = false);
+  /// Collect decls that \c VD overrides or serves as the witness of (whether
+  /// through being the default implementation or through a conformance).
+  ArrayRef<ValueDecl *> collectAllOverriddenDecls(const ValueDecl *VD);
 
   /// Enumerates the various kinds of "build" functions within a result
   /// builder.

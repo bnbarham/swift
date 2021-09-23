@@ -840,19 +840,20 @@ void swift::collectVariableType(
   Walker.walk(SF);
 }
 
-ArrayRef<ValueDecl*> swift::
-canDeclProvideDefaultImplementationFor(ValueDecl* VD) {
-  return evaluateOrDefault(VD->getASTContext().evaluator,
-                           ProvideDefaultImplForRequest(VD),
-                           ArrayRef<ValueDecl*>());
+// TODO: What's a better name for this function and request?
+ArrayRef<ValueDecl*>
+swift::collectProvidedImplementations(const ValueDecl* VD) {
+  return evaluateOrDefault(
+      VD->getASTContext().evaluator,
+      CollectProvidedImplementationsRequest(const_cast<ValueDecl *>(VD)),
+      ArrayRef<ValueDecl *>());
 }
 
-ArrayRef<ValueDecl*> swift::
-collectAllOverriddenDecls(ValueDecl *VD, bool IncludeProtocolRequirements,
-                          bool Transitive) {
-  return evaluateOrDefault(VD->getASTContext().evaluator,
-    CollectOverriddenDeclsRequest(OverridenDeclsOwner(VD,
-      IncludeProtocolRequirements, Transitive)), ArrayRef<ValueDecl*>());
+ArrayRef<ValueDecl *> swift::collectAllOverriddenDecls(const ValueDecl *VD) {
+  return evaluateOrDefault(
+      VD->getASTContext().evaluator,
+      CollectOverriddenDeclsRequest(const_cast<ValueDecl *>(VD)),
+      ArrayRef<ValueDecl *>());
 }
 
 bool swift::isExtensionApplied(const DeclContext *DC, Type BaseTy,

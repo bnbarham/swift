@@ -25,6 +25,14 @@ public protocol WithInheritedAssocType : WithAssocType {
   associatedtype AssocType = Int
 }
 
+extension P1 {
+  func meth() {}
+}
+
+extension Prot {
+  func meth() {}
+}
+
 // REQUIRES: objc_interop
 // RUN: %sourcekitd-test -req=cursor -pos=16:7 %s -- -embed-bitcode -I %S/Inputs/cursor-overrides %s | %FileCheck -check-prefix=CHECK1 %s
 // CHECK1: source.lang.swift.ref.function.method.instance (12:17-12:23)
@@ -43,3 +51,17 @@ public protocol WithInheritedAssocType : WithAssocType {
 // CHECK2: OVERRIDES BEGIN
 // CHECK2-NEXT: s:16cursor_overrides13WithAssocTypeP0dE0
 // CHECK2-NEXT: OVERRIDES END
+
+// RUN: %sourcekitd-test -req=cursor -pos=29:8 %s -- -embed-bitcode -I %S/Inputs/cursor-overrides %s | %FileCheck -check-prefix=CHECK3 %s
+// CHECK3: source.lang.swift.decl.function.method.instance (29:8-29:14)
+// CHECK3: s:So2P1P16cursor_overridesE4methyyF
+// CHECK3:      OVERRIDES BEGIN
+// CHECK3-NEXT: c:objc(pl)P1(im)meth
+// CHECK3-NEXT: OVERRIDES END
+
+// RUN: %sourcekitd-test -req=cursor -pos=33:8 %s -- -embed-bitcode -I %S/Inputs/cursor-overrides %s | %FileCheck -check-prefix=CHECK4 %s
+// CHECK4: source.lang.swift.decl.function.method.instance (33:8-33:14)
+// CHECK4: s:16cursor_overrides4ProtPAAE4methyyF
+// CHECK4:      OVERRIDES BEGIN
+// CHECK4-NEXT: s:16cursor_overrides4ProtP4methyyF
+// CHECK4-NEXT: OVERRIDES END

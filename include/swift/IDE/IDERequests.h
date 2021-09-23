@@ -141,76 +141,12 @@ public:
 };
 
 //----------------------------------------------------------------------------//
-// ProvideDefaultImplForRequest
+// CollectProvidedImplementationsRequest
 //----------------------------------------------------------------------------//
-/// Collect all the protocol requirements that a given declaration can
-///   provide default implementations for. Input is a declaration in extension
-///   declaration. The result is an array of requirements.
-class ProvideDefaultImplForRequest:
-    public SimpleRequest<ProvideDefaultImplForRequest,
-                         ArrayRef<ValueDecl*>(ValueDecl*),
-                         RequestFlags::Cached>
-{
-public:
-  using SimpleRequest::SimpleRequest;
-
-private:
-  friend SimpleRequest;
-
-  // Evaluation.
-  ArrayRef<ValueDecl*> evaluate(Evaluator &evaluator,
-                                ValueDecl* VD) const;
-
-public:
-  // Caching
-  bool isCached() const { return true; }
-  // Source location
-  SourceLoc getNearestLoc() const { return SourceLoc(); };
-};
-
-//----------------------------------------------------------------------------//
-// CollectOverriddenDeclsRequest
-//----------------------------------------------------------------------------//
-struct OverridenDeclsOwner {
-  ValueDecl *VD;
-  bool IncludeProtocolRequirements;
-  bool Transitive;
-
-  OverridenDeclsOwner(ValueDecl *VD, bool IncludeProtocolRequirements,
-    bool Transitive): VD(VD),
-      IncludeProtocolRequirements(IncludeProtocolRequirements),
-      Transitive(Transitive) {}
-
-  friend llvm::hash_code hash_value(const OverridenDeclsOwner &CI) {
-    return llvm::hash_combine(CI.VD,
-                              CI.IncludeProtocolRequirements,
-                              CI.Transitive);
-  }
-
-  friend bool operator==(const OverridenDeclsOwner &lhs,
-                         const OverridenDeclsOwner &rhs) {
-    return lhs.VD == rhs.VD &&
-      lhs.IncludeProtocolRequirements == rhs.IncludeProtocolRequirements &&
-      lhs.Transitive == rhs.Transitive;
-  }
-
-  friend bool operator!=(const OverridenDeclsOwner &lhs,
-                         const OverridenDeclsOwner &rhs) {
-    return !(lhs == rhs);
-  }
-
-  friend void simple_display(llvm::raw_ostream &out,
-                             const OverridenDeclsOwner &owner) {
-    simple_display(out, owner.VD);
-  }
-};
-
-/// Get decls that the given decl overrides, protocol requirements that
-///   it serves as a default implementation of, and optionally protocol
-///   requirements it satisfies in a conforming class
-class CollectOverriddenDeclsRequest:
-    public SimpleRequest<CollectOverriddenDeclsRequest,
-                         ArrayRef<ValueDecl*>(OverridenDeclsOwner),
+/// Collect decls that \c VD provides the default implementation for.
+class CollectProvidedImplementationsRequest :
+    public SimpleRequest<CollectProvidedImplementationsRequest,
+                         ArrayRef<ValueDecl *>(ValueDecl *),
                          RequestFlags::Cached> {
 public:
   using SimpleRequest::SimpleRequest;
@@ -220,7 +156,33 @@ private:
 
   // Evaluation.
   ArrayRef<ValueDecl*> evaluate(Evaluator &evaluator,
-                                OverridenDeclsOwner Owner) const;
+                                ValueDecl *VD) const;
+
+public:
+  // Caching
+  bool isCached() const { return true; }
+  // Source location
+  SourceLoc getNearestLoc() const { return SourceLoc(); };
+};
+
+
+//----------------------------------------------------------------------------//
+// CollectOverriddenDeclsRequest
+//----------------------------------------------------------------------------//
+/// Collect decls that \c VD overrides or serves as the witness of (whether
+/// through being the default implementation or through a conformance).
+class CollectOverriddenDeclsRequest:
+    public SimpleRequest<CollectOverriddenDeclsRequest,
+                         ArrayRef<ValueDecl *>(ValueDecl *),
+                         RequestFlags::Cached> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  // Evaluation.
+  ArrayRef<ValueDecl *> evaluate(Evaluator &evaluator, ValueDecl *VD) const;
 
 public:
   // Caching

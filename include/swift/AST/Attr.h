@@ -172,7 +172,10 @@ protected:
       kind : NumKnownProtocolKindBits
     );
 
-    SWIFT_INLINE_BITFIELD(ClangDetailsAttr, DeclAttribute, 1,
+    SWIFT_INLINE_BITFIELD(ClangDetailsAttr, DeclAttribute, 1+1,
+      /// Whether the imported node was a macro (or decl otherwise)
+      IsMacro : 1,
+      /// Whether the imported decl was a direct method/property
       IsObjCDirect : 1
     );
   } Bits;
@@ -2039,13 +2042,25 @@ public:
   /// entirely. Just generate it for all decls for now.
   const StringRef XMLComment;
 
-  ClangDetailsAttr(StringRef USR, StringRef XMLComment, bool IsObjCDirect)
+  ClangDetailsAttr(StringRef USR, StringRef XMLComment, bool IsMacro,
+                   bool IsObjCDirect)
       : DeclAttribute(DAK_ClangDetails, SourceLoc(), SourceRange(),
                       /*Implicit=*/true), USR(USR), XMLComment(XMLComment) {
+    Bits.ClangDetailsAttr.IsMacro = IsMacro;
     Bits.ClangDetailsAttr.IsObjCDirect = IsObjCDirect;
   }
 
-  /// Whether the imported function is objc_direct
+  /// Whether the imported node is a decl
+  bool isDecl() const {
+    return !Bits.ClangDetailsAttr.IsMacro;
+  }
+
+  /// Whether the imported node is a macro
+  bool isMacro() const {
+    return Bits.ClangDetailsAttr.IsMacro;
+  }
+
+  /// Whether the imported decl is a direct method/property
   bool isObjCDirect() const {
     return Bits.ClangDetailsAttr.IsObjCDirect;
   }

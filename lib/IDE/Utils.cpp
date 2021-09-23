@@ -552,33 +552,6 @@ bool ide::initInvocationByClangArguments(ArrayRef<const char *> ArgList,
   return false;
 }
 
-template <typename FnTy>
-static void walkOverriddenClangDecls(const clang::NamedDecl *D, const FnTy &Fn){
-  SmallVector<const clang::NamedDecl *, 8> OverDecls;
-  D->getASTContext().getOverriddenMethods(D, OverDecls);
-  for (auto Over : OverDecls)
-    Fn(Over);
-  for (auto Over : OverDecls)
-    walkOverriddenClangDecls(Over, Fn);
-}
-
-void
-ide::walkOverriddenDecls(const ValueDecl *VD,
-                         llvm::function_ref<void(llvm::PointerUnion<
-                             const ValueDecl*, const clang::NamedDecl*>)> Fn) {
-  for (auto CurrOver = VD; CurrOver; CurrOver = CurrOver->getOverriddenDecl()) {
-    if (CurrOver != VD)
-      Fn(CurrOver);
-    if (auto ClangD =
-        dyn_cast_or_null<clang::NamedDecl>(CurrOver->getClangDecl())) {
-      walkOverriddenClangDecls(ClangD, Fn);
-      return;
-    }
-    for (auto Conf: CurrOver->getSatisfiedProtocolRequirements())
-      Fn(Conf);
-  }
-}
-
 /// \returns true if a placeholder was found.
 static bool findPlaceholder(StringRef Input, PlaceholderOccurrence &Occur) {
   while (true) {

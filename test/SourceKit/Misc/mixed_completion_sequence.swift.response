@@ -69,7 +69,7 @@
       key.context: source.codecompletion.context.superclass,
       key.typerelation: source.codecompletion.typerelation.unknown,
       key.num_bytes_to_erase: 0,
-      key.associated_usrs: "s:8MyModule1PPAAE14protocolMethod3ascx5AssocQz_tF",
+      key.associated_usrs: "s:8MyModule1PPAAE14protocolMethod3ascx5AssocQz_tF s:8MyModule1PP14protocolMethod3ascx5AssocQz_tF",
       key.modulename: "MyModule"
     },
     {
@@ -197,7 +197,7 @@
       key.context: source.codecompletion.context.superclass,
       key.typerelation: source.codecompletion.typerelation.unknown,
       key.num_bytes_to_erase: 0,
-      key.associated_usrs: "s:8MyModule1PPAAE14protocolMethod3ascx5AssocQz_tF",
+      key.associated_usrs: "s:8MyModule1PPAAE14protocolMethod3ascx5AssocQz_tF s:8MyModule1PP14protocolMethod3ascx5AssocQz_tF",
       key.modulename: "MyModule"
     },
     {

@@ -1068,20 +1068,10 @@ visitDeclReference(ValueDecl *D, CharSourceRange Range, TypeDecl *CtorTyRef,
   return true;
 }
 
-template <class T>
-static ArrayRef<T> copyToContext(ASTContext &Ctx, ArrayRef<T> Arr) {
-  unsigned n = Arr.size();
-  auto buffer = Ctx.Allocate<T>(n);
-  for (unsigned i = 0; i != n; ++i) {
-    buffer[i] = Arr[i];
-  }
-  return buffer;
-}
-
 ResolvedRangeInfo
 RangeResolver::moveArrayToASTContext(ResolvedRangeInfo Info) {
   auto &Ctx = Impl->Ctx;
-#define COPY(NAME) Info.NAME = copyToContext(Ctx, Info.NAME);
+#define COPY(NAME) Info.NAME = Ctx.AllocateCopy(Info.NAME);
   COPY(ContainedNodes)
   COPY(DeclaredDecls)
   COPY(ReferencedDecls)
@@ -1134,44 +1124,47 @@ swift::ide::simple_display(llvm::raw_ostream &out, const ResolvedRangeInfo &info
 }
 
 //----------------------------------------------------------------------------//
-// ProvideDefaultImplForRequest
+// CollectProvidedImplementationsRequest
 //----------------------------------------------------------------------------//
 static Type getContextFreeInterfaceType(ValueDecl *VD) {
-  if (auto AFD = dyn_cast<AbstractFunctionDecl>(VD)) {
+  if (auto AFD = dyn_cast<AbstractFunctionDecl>(VD))
     return AFD->getMethodInterfaceType();
-  }
   return VD->getInterfaceType();
 }
 
 ArrayRef<ValueDecl *>
-ProvideDefaultImplForRequest::evaluate(Evaluator &eval, ValueDecl* VD) const {
+CollectProvidedImplementationsRequest::evaluate(Evaluator &eval,
+                                                ValueDecl *VD) const {
   // Skip decls that don't have valid names.
   if (!VD->getName())
+    return ArrayRef<ValueDecl *>();
+
+  // Skip if VD isn't a protocol extension.
+  auto extendedProto = VD->getDeclContext()->getExtendedProtocolDecl();
+  if (!extendedProto)
     return ArrayRef<ValueDecl*>();
 
-  // Check if VD is from a protocol extension.
-  auto P = VD->getDeclContext()->getExtendedProtocolDecl();
-  if (!P)
-    return ArrayRef<ValueDecl*>();
-  SmallVector<ValueDecl*, 8> Results;
+  SmallVector<ValueDecl *, 4> results;
+
   // Look up all decls in the protocol's inheritance chain for the ones with
   // the same name with VD.
-  ResolvedMemberResult LookupResult =
-  resolveValueMember(*P->getInnermostDeclContext(),
-                     P->getDeclaredInterfaceType(), VD->getName());
+  ResolvedMemberResult lookupRes =
+      resolveValueMember(*extendedProto->getInnermostDeclContext(),
+                         extendedProto->getDeclaredInterfaceType(),
+                         VD->getName());
 
-  auto VDType = getContextFreeInterfaceType(VD);
-  for (auto Mem : LookupResult.getMemberDecls(InterestedMemberKind::All)) {
-    if (isa<ProtocolDecl>(Mem->getDeclContext())) {
-      if (Mem->isProtocolRequirement() &&
-          getContextFreeInterfaceType(Mem)->isEqual(VDType)) {
-        // We find a protocol requirement VD can provide default
-        // implementation for.
-        Results.push_back(Mem);
+  // Make sure types and context match
+  auto type = getContextFreeInterfaceType(VD);
+  for (auto member : lookupRes.getMemberDecls(InterestedMemberKind::All)) {
+    if (isa<ProtocolDecl>(member->getDeclContext())) {
+      if (member->isProtocolRequirement() &&
+          getContextFreeInterfaceType(member)->isEqual(type)) {
+        results.push_back(member);
       }
     }
   }
-  return copyToContext(VD->getASTContext(), llvm::makeArrayRef(Results));
+
+  return VD->getASTContext().AllocateCopy(results);
 }
 
 //----------------------------------------------------------------------------//
@@ -1179,27 +1172,27 @@ ProvideDefaultImplForRequest::evaluate(Evaluator &eval, ValueDecl* VD) const {
 //----------------------------------------------------------------------------//
 ArrayRef<ValueDecl *>
 CollectOverriddenDeclsRequest::evaluate(Evaluator &evaluator,
-                                        OverridenDeclsOwner Owner) const {
-  std::vector<ValueDecl*> results;
-  auto *VD = Owner.VD;
-  if (auto Overridden = VD->getOverriddenDecl()) {
-    results.push_back(Overridden);
-    while (Owner.Transitive && (Overridden = Overridden->getOverriddenDecl()))
-      results.push_back(Overridden);
-  }
+                                        ValueDecl *VD) const {
+  SmallVector<ValueDecl *, 4> results;
 
-  for (auto Req : evaluateOrDefault(evaluator, ProvideDefaultImplForRequest(VD),
-                                    ArrayRef<ValueDecl*>())) {
-    results.push_back(Req);
-  }
-
-  if (Owner.IncludeProtocolRequirements) {
-    for (auto Satisfied : VD->getSatisfiedProtocolRequirements()) {
-      results.push_back(Satisfied);
+  ValueDecl *overridden = VD;
+  do {
+    // Override chain but skip the original VD
+    if (overridden != VD)
+      results.push_back(overridden);
+    // Any satisfied requirements
+    for (auto *req : overridden->getSatisfiedProtocolRequirements()) {
+      results.push_back(req);
     }
-  }
+  } while ((overridden = overridden->getOverriddenDecl()));
 
-  return copyToContext(VD->getASTContext(), llvm::makeArrayRef(results));
+  // Any protocol members that this decl is the default implementation of
+  ArrayRef<ValueDecl *> defaultImpls =
+      evaluateOrDefault(evaluator, CollectProvidedImplementationsRequest(VD),
+                        ArrayRef<ValueDecl*>());
+  results.append(defaultImpls.begin(), defaultImpls.end());
+
+  return VD->getASTContext().AllocateCopy(results);
 }
 
 

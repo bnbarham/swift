@@ -25,6 +25,7 @@
 #include "swift/AST/NameLookup.h"
 #include "swift/AST/SwiftNameTranslation.h"
 #include "swift/AST/GenericSignature.h"
+#include "swift/AST/USRGeneration.h"
 #include "swift/Basic/SourceManager.h"
 #include "swift/Frontend/Frontend.h"
 #include "swift/Frontend/PrintingDiagnosticConsumer.h"
@@ -1019,21 +1020,11 @@ fillSymbolInfo(CursorSymbolInfo &Symbol, const DeclInfo &DInfo,
     }
   }
 
-  ide::walkOverriddenDecls(
-      DInfo.VD,
-      [&](llvm::PointerUnion<const ValueDecl *, const clang::NamedDecl *> D) {
-        // Could have junk in from previous failing USR print
-        Buffer.clear();
-        if (auto VD = D.dyn_cast<const ValueDecl *>()) {
-          if (SwiftLangSupport::printUSR(VD, OS))
-            return;
-        } else {
-          if (clang::index::generateUSRForDecl(
-                  D.get<const clang::NamedDecl *>(), Buffer))
-            return;
-        }
-        Strings.push_back(copyAndClearString(Allocator, Buffer));
-      });
+  for (auto *Override : collectAllOverriddenDecls(DInfo.VD)) {
+    Buffer.clear();
+    if (!ide::printValueDeclUSR(Override, OS))
+      Strings.push_back(copyAndClearString(Allocator, Buffer));
+  }
   Symbol.OverrideUSRs = copyAndClearArray(Allocator, Strings);
 
   walkRelatedDecls(DInfo.VD, [&](const ValueDecl *RelatedDecl,

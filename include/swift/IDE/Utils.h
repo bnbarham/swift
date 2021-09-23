@@ -95,12 +95,6 @@ bool initInvocationByClangArguments(ArrayRef<const char *> ArgList,
                                     CompilerInvocation &Invok,
                                     std::string &Error);
 
-/// Visits all overridden declarations exhaustively from VD, including protocol
-/// conformances and clang declarations.
-void walkOverriddenDecls(const ValueDecl *VD,
-                         llvm::function_ref<void(llvm::PointerUnion<
-                             const ValueDecl*, const clang::NamedDecl*>)> Fn);
-
 void collectModuleNames(StringRef SDKPath, std::vector<std::string> &Modules);
 
 struct PlaceholderOccurrence {

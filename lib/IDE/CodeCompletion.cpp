@@ -1094,43 +1094,37 @@ bool shouldCopyAssociatedUSRForDecl(const ValueDecl *VD) {
     return false;
   if (isa<ModuleDecl>(VD))
     return false;
-  if (VD->hasClangNode() && !VD->getClangDecl())
+
+  const ClangDetailsAttr *ClangDetails = VD->getClangDetails();
+  if (ClangDetails && ClangDetails->isMacro())
     return false;
 
   return true;
 }
 
-template <typename FnTy>
-static void walkValueDeclAndOverriddenDecls(const Decl *D, const FnTy &Fn) {
-  if (auto *VD = dyn_cast<ValueDecl>(D)) {
-    Fn(VD);
-    walkOverriddenDecls(VD, Fn);
-  }
-}
-
 ArrayRef<StringRef> copyAssociatedUSRs(llvm::BumpPtrAllocator &Allocator,
                                        const Decl *D) {
-  llvm::SmallVector<StringRef, 4> USRs;
-  walkValueDeclAndOverriddenDecls(D, [&](llvm::PointerUnion<const ValueDecl*,
-                                                  const clang::NamedDecl*> OD) {
-    llvm::SmallString<128> SS;
-    bool Ignored = true;
-    if (auto *OVD = OD.dyn_cast<const ValueDecl*>()) {
-      if (shouldCopyAssociatedUSRForDecl(OVD)) {
-        llvm::raw_svector_ostream OS(SS);
-        Ignored = printValueDeclUSR(OVD, OS);
-      }
-    } else if (auto *OND = OD.dyn_cast<const clang::NamedDecl*>()) {
-      Ignored = clang::index::generateUSRForDecl(OND, SS);
-    }
+  const auto *VD = dyn_cast<ValueDecl>(D);
+  if (!VD)
+    return ArrayRef<StringRef>();
 
-    if (!Ignored)
-      USRs.push_back(copyString(Allocator, SS));
-  });
+  llvm::SmallString<128> Buffer;
+  llvm::raw_svector_ostream OS(Buffer);
+  llvm::SmallVector<StringRef, 4> USRs;
+  auto AddUSR = [&](const ValueDecl *DeclToAdd) {
+    Buffer.clear();
+    if (shouldCopyAssociatedUSRForDecl(DeclToAdd) &&
+        !printValueDeclUSR(DeclToAdd, OS))
+      USRs.push_back(copyString(Allocator, Buffer));
+  };
+
+  AddUSR(VD);
+  for (auto *Override : collectAllOverriddenDecls(VD)) {
+    AddUSR(Override);
+  }
 
   if (!USRs.empty())
-    return copyArray(Allocator, ArrayRef<StringRef>(USRs));
-
+    return copyArray(Allocator, llvm::makeArrayRef(USRs));
   return ArrayRef<StringRef>();
 }
 

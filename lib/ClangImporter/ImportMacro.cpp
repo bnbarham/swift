@@ -654,9 +654,11 @@ void ClangImporter::Implementation::importClangDetails(
       getClangASTContext().getSourceManager(), Buffer);
   if (!Ignore) {
     StringRef USR = SwiftContext.AllocateCopy(Buffer.str());
-    Buffer.clear();
 
-    auto *Attr = new (SwiftContext) ClangDetailsAttr(USR, StringRef(), false);
+    auto *Attr = new (SwiftContext) ClangDetailsAttr(USR,
+                                                     /*XMLComment=*/StringRef(),
+                                                     /*IsMacro=*/true,
+                                                     /*IsObjCDirect=*/false);
     mappedDecl->getAttrs().add(Attr);
   }
 }

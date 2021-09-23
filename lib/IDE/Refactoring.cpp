@@ -606,14 +606,9 @@ public:
 static const ValueDecl *getRelatedSystemDecl(const ValueDecl *VD) {
   if (VD->getModuleContext()->isSystemModule())
     return VD;
-  for (auto *Req : VD->getSatisfiedProtocolRequirements()) {
-    if (Req->getModuleContext()->isSystemModule())
-      return Req;
-  }
-  for (auto Over = VD->getOverriddenDecl(); Over;
-       Over = Over->getOverriddenDecl()) {
-    if (Over->getModuleContext()->isSystemModule())
-      return Over;
+  for (auto *Override : collectAllOverriddenDecls(VD)) {
+    if (Override->getModuleContext()->isSystemModule())
+      return Override;
   }
   return nullptr;
 }

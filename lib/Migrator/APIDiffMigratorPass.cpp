@@ -282,9 +282,7 @@ struct APIDiffMigratorPass : public ASTMigratorPass, public SourceEntityWalker {
     };
 
     addDiffItems(VD);
-    for (auto *Overridden: collectAllOverriddenDecls(VD,
-                                                     /*IncludeProtocolReqs=*/true,
-                                                     /*Transitive=*/true)) {
+    for (auto *Overridden : collectAllOverriddenDecls(VD)) {
       addDiffItems(Overridden);
     }
     return results;

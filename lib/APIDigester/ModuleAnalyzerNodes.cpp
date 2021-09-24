@@ -1599,10 +1599,9 @@ SwiftDeclCollector::constructInitNode(ConstructorDecl *CD) {
 bool swift::ide::api::
 SDKContext::shouldIgnore(Decl *D, const Decl* Parent) const {
   // Exclude all clang nodes if we're comparing Swift decls specifically.
-  // FIXME: isFromClang also excludes Swift decls with @objc. We should allow those.
-  if (Opts.SwiftOnly && isFromClang(D)) {
+  if (Opts.SwiftOnly && D->originatedFromClang())
     return true;
-  }
+
   if (auto *ACC = dyn_cast<AccessorDecl>(D)) {
     // Only include accessors if they are part of var and subscript decl.
     if (!isa<AbstractStorageDecl>(Parent)) {

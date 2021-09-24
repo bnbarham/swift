@@ -1094,14 +1094,6 @@ void swift::ide::BroadcastingSourceEditConsumer::accept(
   }
 }
 
-bool swift::ide::isFromClang(const Decl *D) {
-  if (getEffectiveClangNode(D))
-    return true;
-  if (auto *Ext = dyn_cast<ExtensionDecl>(D))
-    return static_cast<bool>(extensionGetClangNode(Ext));
-  return false;
-}
-
 ClangNode swift::ide::getEffectiveClangNode(const Decl *decl) {
   auto &ctx = decl->getASTContext();
   auto *importer = static_cast<ClangImporter *>(ctx.getClangModuleLoader());

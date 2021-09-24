@@ -575,9 +575,6 @@ std::pair<std::vector<CharSourceRange>, Optional<unsigned>>
 getCallArgLabelRanges(SourceManager &SM, ArgumentList *Args,
                       LabelRangeEndAt EndKind);
 
-/// Whether a decl is defined from clang source.
-bool isFromClang(const Decl *D);
-
 /// Retrieve the effective Clang node for the given declaration, which
 /// copes with the odd case of imported Error enums.
 ClangNode getEffectiveClangNode(const Decl *decl);

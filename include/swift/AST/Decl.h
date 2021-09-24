@@ -950,16 +950,6 @@ public:
     return getClangNodeImpl().getAsDecl();
   }
 
-  /// Retrieve the Clang macro from which this declaration was
-  /// synthesized, if any.
-  LLVM_READONLY
-  const clang::MacroInfo *getClangMacro() {
-    if (!Bits.Decl.FromClang)
-      return nullptr;
-
-    return getClangNodeImpl().getAsMacro();
-  }
-
   /// Return the GenericContext if the Decl has one.
   LLVM_READONLY
   const GenericContext *getAsGenericContext() const;

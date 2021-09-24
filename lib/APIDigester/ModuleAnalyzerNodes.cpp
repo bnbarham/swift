@@ -1931,7 +1931,8 @@ void SwiftDeclCollector::processValueDecl(ValueDecl *VD) {
 
 void SwiftDeclCollector::foundDecl(ValueDecl *VD, DeclVisibilityKind Reason,
                                    DynamicLookupInfo) {
-  if (VD->getClangMacro()) {
+  const ClangDetailsAttr *Details = VD->getClangDetails();
+  if (Details && Details->isMacro()) {
     // Collect macros, we will sort them afterwards.
     ClangMacros.push_back(VD);
     return;

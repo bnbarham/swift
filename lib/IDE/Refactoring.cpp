@@ -8280,7 +8280,7 @@ void swift::ide::collectRenameAvailabilityInfo(
   RenameAvailableKind AvailKind = RenameAvailableKind::Available;
   if (getRelatedSystemDecl(VD)){
     AvailKind = RenameAvailableKind::Unavailable_system_symbol;
-  } else if (VD->getClangDecl()) {
+  } else if (VD->originatedFromClang()) {
     AvailKind = RenameAvailableKind::Unavailable_decl_from_clang;
   } else if (VD->getStartLoc().isInvalid()) {
     AvailKind = RenameAvailableKind::Unavailable_has_no_location;

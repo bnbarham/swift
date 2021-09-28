@@ -1194,14 +1194,12 @@ public:
   ///   considered for any attributes it might carry.
   /// \param params The parameter types to the function.
   /// \param isVariadic Whether the function is variadic.
-  /// \param isFromSystemModule Whether to apply special rules that only apply
-  ///   to system APIs.
   /// \param name The name of the function.
   /// \param[out] parameterList The parameters visible inside the function body.
   ImportedType importFunctionParamsAndReturnType(
       DeclContext *dc, const clang::FunctionDecl *clangDecl,
       ArrayRef<const clang::ParmVarDecl *> params, bool isVariadic,
-      bool isFromSystemModule, DeclName name, ParameterList *&parameterList,
+      DeclName name, ParameterList *&parameterList,
       ArrayRef<GenericTypeParamDecl *> genericParams);
 
   /// Import the given function return type.
@@ -1209,14 +1207,11 @@ public:
   /// \param dc The context the function is being imported into.
   /// \param clangDecl The underlying declaration, if any; should only be
   ///   considered for any attributes it might carry.
-  /// \param allowNSUIntegerAsInt If true, NSUInteger will be imported as Int
-  ///        in certain contexts. If false, it will always be imported as UInt.
   ///
   /// \returns the imported function return type, or null if the type cannot be
   /// imported.
   ImportedType importFunctionReturnType(DeclContext *dc,
-                                        const clang::FunctionDecl *clangDecl,
-                                        bool allowNSUIntegerAsInt);
+                                        const clang::FunctionDecl *clangDecl);
 
   /// Import the parameter list for a function
   ///
@@ -1224,15 +1219,13 @@ public:
   ///   considered for any attributes it might carry.
   /// \param params The parameter types to the function.
   /// \param isVariadic Whether the function is variadic.
-  /// \param allowNSUIntegerAsInt If true, NSUInteger will be imported as Int
-  ///        in certain contexts. If false, it will always be imported as UInt.
   /// \param argNames The argument names
   ///
   /// \returns The imported parameter list on success, or null on failure
   ParameterList *importFunctionParameterList(
       DeclContext *dc, const clang::FunctionDecl *clangDecl,
       ArrayRef<const clang::ParmVarDecl *> params, bool isVariadic,
-      bool allowNSUIntegerAsInt, ArrayRef<Identifier> argNames,
+      ArrayRef<Identifier> argNames,
       ArrayRef<GenericTypeParamDecl *> genericParams);
 
   ImportedType importPropertyType(const clang::ObjCPropertyDecl *clangDecl,

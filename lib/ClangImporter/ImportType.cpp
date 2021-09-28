@@ -1760,8 +1760,11 @@ Type ClangImporter::Implementation::applyParamAttributes(
 }
 
 ImportedType ClangImporter::Implementation::importFunctionReturnType(
-    DeclContext *dc, const clang::FunctionDecl *clangDecl,
-    bool allowNSUIntegerAsInt) {
+    DeclContext *dc, const clang::FunctionDecl *clangDecl) {
+  bool isInSystemModule =
+      cast<ClangModuleUnit>(dc->getModuleScopeContext())->isSystemModule();
+  bool allowNSUIntegerAsInt =
+      shouldAllowNSUIntegerAsInt(isInSystemModule, clangDecl);
 
   // Hardcode handling of certain result types for builtins.
   if (auto builtinID = clangDecl->getBuiltinID()) {
@@ -1821,11 +1824,8 @@ findGenericTypeInGenericDecls(const clang::TemplateTypeParmType *templateParam,
 ImportedType ClangImporter::Implementation::importFunctionParamsAndReturnType(
     DeclContext *dc, const clang::FunctionDecl *clangDecl,
     ArrayRef<const clang::ParmVarDecl *> params, bool isVariadic,
-    bool isFromSystemModule, DeclName name, ParameterList *&parameterList,
+    DeclName name, ParameterList *&parameterList,
     ArrayRef<GenericTypeParamDecl *> genericParams) {
-
-  bool allowNSUIntegerAsInt =
-      shouldAllowNSUIntegerAsInt(isFromSystemModule, clangDecl);
 
   // Only eagerly import the return type if it's not too expensive (the current
   // huristic for that is if it's not a record type).
@@ -1838,16 +1838,14 @@ ImportedType ClangImporter::Implementation::importFunctionParamsAndReturnType(
              // TODO: we currently don't lazily load operator return types, but
              // this should be trivial to add.
              clangDecl->isOverloadedOperator()) {
-    importedType =
-        importFunctionReturnType(dc, clangDecl, allowNSUIntegerAsInt);
+    importedType = importFunctionReturnType(dc, clangDecl);
     if (!importedType)
       return {Type(), false};
   }
 
   ArrayRef<Identifier> argNames = name.getArgumentNames();
   parameterList = importFunctionParameterList(dc, clangDecl, params, isVariadic,
-                                              allowNSUIntegerAsInt, argNames,
-                                              genericParams);
+                                              argNames, genericParams);
   if (!parameterList)
     return {Type(), false};
 
@@ -1861,8 +1859,13 @@ ImportedType ClangImporter::Implementation::importFunctionParamsAndReturnType(
 ParameterList *ClangImporter::Implementation::importFunctionParameterList(
     DeclContext *dc, const clang::FunctionDecl *clangDecl,
     ArrayRef<const clang::ParmVarDecl *> params, bool isVariadic,
-    bool allowNSUIntegerAsInt, ArrayRef<Identifier> argNames,
+    ArrayRef<Identifier> argNames,
     ArrayRef<GenericTypeParamDecl *> genericParams) {
+  bool isInSystemModule =
+      cast<ClangModuleUnit>(dc->getModuleScopeContext())->isSystemModule();
+  bool allowNSUIntegerAsInt =
+      shouldAllowNSUIntegerAsInt(isInSystemModule, clangDecl);
+
   // Import the parameters.
   SmallVector<ParamDecl *, 4> parameters;
   unsigned index = 0;

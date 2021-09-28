@@ -238,9 +238,6 @@ public:
                                  SubstitutionMap subst) = 0;
 
   virtual bool isCXXMethodMutating(const clang::CXXMethodDecl *method) = 0;
-
-  virtual Type importFunctionReturnType(const clang::FunctionDecl *clangDecl,
-                                        DeclContext *dc) = 0;
 };
 
 /// Describes a C++ template instantiation error.

@@ -1989,11 +1989,11 @@ ResultTypeRequest::evaluate(Evaluator &evaluator, ValueDecl *decl) const {
     resultTyRepr = cast<SubscriptDecl>(decl)->getElementTypeRepr();
   }
 
-  if (!resultTyRepr && decl->getClangDecl() &&
-      isa<clang::FunctionDecl>(decl->getClangDecl())) {
-    auto clangFn = cast<clang::FunctionDecl>(decl->getClangDecl());
-    return ctx.getClangModuleLoader()->importFunctionReturnType(
-        clangFn, decl->getDeclContext());
+  if (!resultTyRepr) {
+    if (const auto *details = decl->getClangDetails()) {
+      if (details->ResultType)
+        return details->ResultType;
+    }
   }
 
   // Nothing to do if there's no result type.

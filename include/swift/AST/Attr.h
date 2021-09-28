@@ -2042,10 +2042,14 @@ public:
   /// entirely. Just generate it for all decls for now.
   const StringRef XMLComment;
 
-  ClangDetailsAttr(StringRef USR, StringRef XMLComment, bool IsMacro,
-                   bool IsObjCDirect)
+  /// Imported result type of the attached decl (assuming it's a FuncDecl).
+  const Type ResultType;
+
+  ClangDetailsAttr(StringRef USR, StringRef XMLComment, Type ResultType,
+                   bool IsMacro, bool IsObjCDirect)
       : DeclAttribute(DAK_ClangDetails, SourceLoc(), SourceRange(),
-                      /*Implicit=*/true), USR(USR), XMLComment(XMLComment) {
+                      /*Implicit=*/true), USR(USR), XMLComment(XMLComment),
+        ResultType(ResultType) {
     Bits.ClangDetailsAttr.IsMacro = IsMacro;
     Bits.ClangDetailsAttr.IsObjCDirect = IsObjCDirect;
   }

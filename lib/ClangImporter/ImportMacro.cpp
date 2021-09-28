@@ -657,6 +657,7 @@ void ClangImporter::Implementation::importClangDetails(
 
     auto *Attr = new (SwiftContext) ClangDetailsAttr(USR,
                                                      /*XMLComment=*/StringRef(),
+                                                     Type(),
                                                      /*IsMacro=*/true,
                                                      /*IsObjCDirect=*/false);
     mappedDecl->getAttrs().add(Attr);

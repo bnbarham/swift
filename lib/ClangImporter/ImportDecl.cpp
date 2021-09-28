@@ -4011,8 +4011,7 @@ namespace {
     ParameterList *getNonSelfParamList(
         DeclContext *dc, const clang::FunctionDecl *decl,
         Optional<unsigned> selfIdx, ArrayRef<Identifier> argNames,
-        bool allowNSUIntegerAsInt, bool isAccessor,
-        ArrayRef<GenericTypeParamDecl *> genericParams) {
+        bool isAccessor, ArrayRef<GenericTypeParamDecl *> genericParams) {
       if (bool(selfIdx)) {
         assert(((decl->getNumParams() == argNames.size() + 1) || isAccessor) &&
                (*selfIdx < decl->getNumParams()) && "where's self?");
@@ -4029,8 +4028,7 @@ namespace {
         nonSelfParams.push_back(decl->getParamDecl(i));
       }
       return Impl.importFunctionParameterList(
-          dc, decl, nonSelfParams, decl->isVariadic(), allowNSUIntegerAsInt,
-          argNames, genericParams);
+          dc, decl, nonSelfParams, decl->isVariadic(), argNames, genericParams);
     }
 
     Decl *importGlobalAsInitializer(const clang::FunctionDecl *decl,
@@ -4200,12 +4198,9 @@ namespace {
           }
         }
 
-        bool allowNSUIntegerAsInt =
-            Impl.shouldAllowNSUIntegerAsInt(isInSystemModule(dc), decl);
-
         bodyParams =
             getNonSelfParamList(dc, decl, selfIdx, name.getArgumentNames(),
-                                allowNSUIntegerAsInt, !name, templateParams);
+                                !name, templateParams);
         // If we can't import a param for some reason (ex. it's a dependent
         // type), bail.
         if (!bodyParams)
@@ -4213,14 +4208,13 @@ namespace {
 
         if (decl->getReturnType()->isScalarType())
           importedType =
-              Impl.importFunctionReturnType(dc, decl, allowNSUIntegerAsInt);
+              Impl.importFunctionReturnType(dc, decl);
       } else {
         // Import the function type. If we have parameters, make sure their
         // names get into the resulting function type.
         importedType = Impl.importFunctionParamsAndReturnType(
             dc, decl, {decl->param_begin(), decl->param_size()},
-            decl->isVariadic(), isInSystemModule(dc), name, bodyParams,
-            templateParams);
+            decl->isVariadic(), name, bodyParams, templateParams);
 
         if (auto *mdecl = dyn_cast<clang::CXXMethodDecl>(decl)) {
           if (mdecl->isStatic() ||
@@ -6617,9 +6611,6 @@ Decl *SwiftDeclConverter::importGlobalAsInitializer(
     return nullptr;
   }
 
-  bool allowNSUIntegerAsInt =
-      Impl.shouldAllowNSUIntegerAsInt(isInSystemModule(dc), decl);
-
   ArrayRef<Identifier> argNames = name.getArgumentNames();
 
   ParameterList *parameterList = nullptr;
@@ -6637,13 +6628,12 @@ Decl *SwiftDeclConverter::importGlobalAsInitializer(
   } else {
     parameterList = Impl.importFunctionParameterList(
         dc, decl, {decl->param_begin(), decl->param_end()}, decl->isVariadic(),
-        allowNSUIntegerAsInt, argNames, /*genericParams=*/{});
+        argNames, /*genericParams=*/{});
   }
   if (!parameterList)
     return nullptr;
 
-  auto importedType =
-      Impl.importFunctionReturnType(dc, decl, allowNSUIntegerAsInt);
+  auto importedType = Impl.importFunctionReturnType(dc, decl);
 
   // Update the failability appropriately based on the imported method type.
   bool failable = false, isIUO = false;
@@ -8653,6 +8643,14 @@ void ClangImporter::Implementation::importClangDetails(
     XMLComment = SwiftContext.AllocateCopy(Buffer.str());
   }
 
+  Type ResultType;
+  if (auto *FD = dyn_cast<clang::FunctionDecl>(ClangDecl)) {
+    ResultType =
+        importFunctionReturnType(MappedDecl->getDeclContext(), FD).getType();
+    if (!ResultType)
+      ResultType = MappedDecl->getASTContext().getNeverType();
+  }
+
   bool IsObjCDirect = false;
   if (auto method = dyn_cast<clang::ObjCMethodDecl>(ClangDecl)) {
     IsObjCDirect = method->isDirectMethod();
@@ -8660,7 +8658,7 @@ void ClangImporter::Implementation::importClangDetails(
     IsObjCDirect = property->isDirectProperty();
   }
 
-  auto *Attr = new (SwiftContext) ClangDetailsAttr(USR, XMLComment,
+  auto *Attr = new (SwiftContext) ClangDetailsAttr(USR, XMLComment, ResultType,
                                                    /*IsMacro=*/false,
                                                    IsObjCDirect);
   MappedDecl->getAttrs().add(Attr);

@@ -893,11 +893,6 @@ AvailabilityContext Decl::getAvailabilityForLinkage() const {
 }
 
 bool Decl::isAlwaysWeakImported() const {
-  // For a Clang declaration, trust Clang.
-  if (auto clangDecl = getClangDecl()) {
-    return clangDecl->isWeakImported();
-  }
-
   if (getAttrs().hasAttribute<WeakLinkedAttr>())
     return true;
 

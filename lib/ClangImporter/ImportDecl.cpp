@@ -9021,6 +9021,10 @@ void ClangImporter::Implementation::importAttributes(
   if (ClangDecl->hasAttr<clang::PureAttr>()) {
     MappedDecl->getAttrs().add(new (C) EffectsAttr(EffectsKind::ReadOnly));
   }
+
+  // Add @_weakLinked if the underlying decl is weak imported
+  if (ClangDecl->isWeakImported())
+    MappedDecl->getAttrs().add(new (C) WeakLinkedAttr(/*IsImplicit=*/true));
 }
 
 Decl *

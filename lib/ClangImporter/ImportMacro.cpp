@@ -659,7 +659,8 @@ void ClangImporter::Implementation::importClangDetails(
                                                      /*XMLComment=*/StringRef(),
                                                      Type(),
                                                      /*IsMacro=*/true,
-                                                     /*IsObjCDirect=*/false);
+                                                     /*IsObjCDirect=*/false,
+                                                     /*IsSwiftPrivate=*/false);
     mappedDecl->getAttrs().add(Attr);
   }
 }

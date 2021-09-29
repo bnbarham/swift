@@ -1651,12 +1651,15 @@ SDKContext::shouldIgnore(Decl *D, const Decl* Parent) const {
     }
   }
 
+  if (auto *ClangDetails = D->getClangDetails()) {
+    if (ClangDetails->isSwiftPrivate())
+      return true;
+  }
+
   if (auto *ClangD = D->getClangDecl()) {
     if (isa<clang::ObjCIvarDecl>(ClangD))
       return true;
     if (isa<clang::FieldDecl>(ClangD))
-      return true;
-    if (ClangD->hasAttr<clang::SwiftPrivateAttr>())
       return true;
 
     // If this decl is a synthesized member from a conformed clang protocol, we

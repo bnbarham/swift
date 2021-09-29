@@ -3250,8 +3250,8 @@ bool ValueDecl::shouldHideFromEditor() const {
   if (AvailableAttr::isUnavailable(this))
     return true;
 
-  if (auto *ClangD = getClangDecl()) {
-    if (ClangD->hasAttr<clang::SwiftPrivateAttr>())
+  if (auto *ClangDetails = getClangDetails()) {
+    if (ClangDetails->isSwiftPrivate())
       return true;
   }
 

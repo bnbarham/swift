@@ -1753,8 +1753,8 @@ bool ShouldPrintChecker::shouldPrint(const Decl *D,
 
   // Skip clang decls marked with the swift_private attribute.
   if (Options.SkipSwiftPrivateClangDecls) {
-    if (auto ClangD = D->getClangDecl()) {
-      if (ClangD->hasAttr<clang::SwiftPrivateAttr>())
+    if (auto *ClangDetails = D->getClangDetails()) {
+      if (ClangDetails->isSwiftPrivate())
         return false;
     }
   }

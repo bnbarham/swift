@@ -8658,9 +8658,12 @@ void ClangImporter::Implementation::importClangDetails(
     IsObjCDirect = property->isDirectProperty();
   }
 
+  bool IsSwiftPrivate = ClangDecl->hasAttr<clang::SwiftPrivateAttr>();
+
   auto *Attr = new (SwiftContext) ClangDetailsAttr(USR, XMLComment, ResultType,
                                                    /*IsMacro=*/false,
-                                                   IsObjCDirect);
+                                                   IsObjCDirect,
+                                                   IsSwiftPrivate);
   MappedDecl->getAttrs().add(Attr);
 }
 

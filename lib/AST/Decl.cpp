@@ -2827,6 +2827,21 @@ llvm::TinyPtrVector<ValueDecl *> ValueDecl::getOverriddenDecls() const {
     OverriddenDeclsRequest{const_cast<ValueDecl *>(this)}, {});
 }
 
+llvm::ArrayRef<ValueDecl *>
+ValueDecl::getAllOverriddenDecls(bool transitive) const {
+  return evaluateOrDefault(
+      getASTContext().evaluator,
+      AllOverriddenDeclsRequest{const_cast<ValueDecl *>(this), transitive}, {});
+}
+
+llvm::ArrayRef<ValueDecl *>
+ValueDecl::getProvidedImplementations(bool transitive) const {
+  return evaluateOrDefault(
+      getASTContext().evaluator,
+      ProvidedImplementationsRequest{const_cast<ValueDecl *>(this),
+                                     transitive}, {});
+}
+
 void ValueDecl::setOverriddenDecls(ArrayRef<ValueDecl *> overridden) {
   llvm::TinyPtrVector<ValueDecl *> overriddenVec(overridden);
   OverriddenDeclsRequest request{const_cast<ValueDecl *>(this)};

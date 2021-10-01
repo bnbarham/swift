@@ -946,7 +946,7 @@ bool IndexSwiftASTWalker::startEntityDecl(ValueDecl *D) {
       return false;
   }
 
-  // collectAllOverriddenDecls is expensive since it queries all protocol
+  // getAllOverriddenDecls is expensive since it queries all protocol
   // requirements. To avoid this we instead only query for the local
   // conformances on a DeclContext and add them to ExplicitWitnesses, which we
   // then handle below.
@@ -957,7 +957,8 @@ bool IndexSwiftASTWalker::startEntityDecl(ValueDecl *D) {
     addRelation(Info, (SymbolRoleSet) SymbolRole::RelationOverrideOf,
                 Overridden);
   }
-  for (ValueDecl *DefaultOf : collectProvidedImplementations(D)) {
+  for (ValueDecl *DefaultOf :
+       D->getProvidedImplementations(/*transitive=*/false)) {
     addRelation(Info, (SymbolRoleSet) SymbolRole::RelationOverrideOf,
                 DefaultOf);
   }

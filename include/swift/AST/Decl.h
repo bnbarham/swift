@@ -2375,6 +2375,17 @@ public:
   /// Retrieve the declarations that this declaration overrides, if any.
   llvm::TinyPtrVector<ValueDecl *> getOverriddenDecls() const;
 
+  // TODO: Need a better name for this method
+  /// Retrieve the decls that this overrides or serves as the witness of
+  /// (whether through being the default implementation or through a
+  /// conformance). This is an expensive operation as it looks up all protocol
+  /// requirements that the current decl conforms to \see
+  /// getSatisfiedProtocolRequirements.
+  llvm::ArrayRef<ValueDecl *> getAllOverriddenDecls(bool transitive) const;
+
+  /// Retrieve decls that this provides the default implementation for.
+  llvm::ArrayRef<ValueDecl *> getProvidedImplementations(bool transitive) const;
+
   /// Set the declaration that this declaration overrides.
   void setOverriddenDecl(ValueDecl *overridden) {
     setOverriddenDecls(overridden);

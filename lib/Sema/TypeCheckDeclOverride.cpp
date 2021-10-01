@@ -26,6 +26,7 @@
 #include "swift/AST/NameLookupRequests.h"
 #include "swift/AST/ParameterList.h"
 #include "swift/AST/TypeCheckRequests.h"
+
 using namespace swift;
 
 static void adjustFunctionTypeForOverride(Type &type) {
@@ -2299,4 +2300,75 @@ void swift::checkImplementationOnlyOverride(const ValueDecl *VD) {
   // doesn't make this easy, though, because it just gives the setter the same
   // DeclContext as the property or subscript, which means we've lost the
   // information about whether its module was implementation-only imported.
+}
+
+ArrayRef<ValueDecl *>
+ProvidedImplementationsRequest::evaluate(Evaluator &eval, ValueDecl *VD,
+                                         bool transitive) const {
+  // Skip decls that don't have valid names.
+  if (!VD->getName())
+    return ArrayRef<ValueDecl *>();
+
+  // Skip if VD isn't within a protocol extension.
+  auto extendedProto = VD->getDeclContext()->getExtendedProtocolDecl();
+  if (!extendedProto)
+    return ArrayRef<ValueDecl*>();
+
+  Type comparisonType;
+  if (isa<AbstractStorageDecl>(VD) || isa<AbstractFunctionDecl>(VD))
+    comparisonType = getMemberTypeForComparison(VD);
+
+  SmallVector<ValueDecl *, 2> members;
+  NLOptions options = NLOptions::NL_ProtocolMembers;
+  if (!transitive)
+    options |= NLOptions::NL_RemoveOverridden;
+  extendedProto->lookupQualified(const_cast<ProtocolDecl *>(extendedProto),
+                                 DeclNameRef(VD->getName()), options, members);
+
+  SmallVector<ValueDecl *, 4> results;
+  for (auto *member : members) {
+    if (!isa<ProtocolDecl>(member->getDeclContext()) ||
+        !member->isProtocolRequirement())
+      continue;
+
+    // Make sure types match for function/subscript/var
+    if (comparisonType && (VD->getKind() != member->getKind() ||
+        !isOverrideBasedOnType(VD, comparisonType, member)))
+      continue;
+    results.push_back(member);
+  }
+
+  return VD->getASTContext().AllocateCopy(results);
+}
+
+ArrayRef<ValueDecl *>
+AllOverriddenDeclsRequest::evaluate(Evaluator &evaluator, ValueDecl *VD,
+                                    bool transitive) const {
+  SmallVector<ValueDecl *, 4> results;
+  auto addOverrides = [&](ValueDecl *next) {
+    TinyPtrVector<ValueDecl *> overridden = next->getOverriddenDecls();
+    ArrayRef<ValueDecl *> satisfied = next->getSatisfiedProtocolRequirements();
+    results.append(overridden.begin(), overridden.end());
+    results.append(satisfied.begin(), satisfied.end());
+  };
+
+  // Any protocol members that this decl is the default implementation of
+  ArrayRef<ValueDecl *> defaultImpls =
+      VD->getProvidedImplementations(transitive);
+  results.append(defaultImpls.begin(), defaultImpls.end());
+
+  // If there's results then we have all the possible decls that this decl
+  // provides the default for, so no point grabbing overrides/requirements.
+  if (results.empty()) {
+    addOverrides(VD);
+
+    if (transitive) {
+      size_t i = 0;
+      while (i < results.size()) {
+        addOverrides(results[i++]);
+      }
+    }
+  }
+
+  return VD->getASTContext().AllocateCopy(results);
 }

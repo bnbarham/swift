@@ -15,12 +15,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-SWIFT_REQUEST(IDE, CollectOverriddenDeclsRequest,
-              ArrayRef<ValueDecl *>(ValueDecl *), Cached,
-              NoLocationInfo)
-SWIFT_REQUEST(IDE, CollectProvidedImplementationsRequest,
-              ArrayRef<ValueDecl *>(ValueDecl *), Cached,
-              NoLocationInfo)
 SWIFT_REQUEST(IDE, CursorInfoRequest, ide::ResolvedCursorInfo(CursorInfoOwner),
               Cached, NoLocationInfo)
 SWIFT_REQUEST(IDE, RangeInfoRequest, ide::ResolvedRangeInfo(RangeInfoOwner),

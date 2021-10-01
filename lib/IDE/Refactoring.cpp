@@ -606,7 +606,7 @@ public:
 static const ValueDecl *getRelatedSystemDecl(const ValueDecl *VD) {
   if (VD->getModuleContext()->isSystemModule())
     return VD;
-  for (auto *Override : collectAllOverriddenDecls(VD)) {
+  for (auto *Override : VD->getAllOverriddenDecls(/*transitive=*/true)) {
     if (Override->getModuleContext()->isSystemModule())
       return Override;
   }

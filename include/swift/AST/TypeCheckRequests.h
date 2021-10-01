@@ -2980,6 +2980,43 @@ public:
   bool isCached() const { return true; }
 };
 
+/// Collect decls that \c VD provides the default implementation for.
+class ProvidedImplementationsRequest
+    : public SimpleRequest<ProvidedImplementationsRequest,
+                           ArrayRef<ValueDecl *>(ValueDecl *, bool),
+                           RequestFlags::Cached> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  ArrayRef<ValueDecl*> evaluate(Evaluator &evaluator, ValueDecl *VD,
+                                bool transitive) const;
+
+public:
+  bool isCached() const { return true; }
+};
+
+/// Collect decls that \c VD overrides or serves as the witness of (whether
+/// through being the default implementation or through a conformance).
+class AllOverriddenDeclsRequest
+    : public SimpleRequest<AllOverriddenDeclsRequest,
+                           ArrayRef<ValueDecl *>(ValueDecl *, bool),
+                           RequestFlags::Cached> {
+public:
+  using SimpleRequest::SimpleRequest;
+
+private:
+  friend SimpleRequest;
+
+  ArrayRef<ValueDecl *> evaluate(Evaluator &evaluator, ValueDecl *VD,
+                                 bool transitive) const;
+
+public:
+  bool isCached() const { return true; }
+};
+
 void simple_display(llvm::raw_ostream &out, Type value);
 void simple_display(llvm::raw_ostream &out, const TypeRepr *TyR);
 void simple_display(llvm::raw_ostream &out, ImplicitMemberAction action);

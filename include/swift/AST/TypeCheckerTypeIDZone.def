@@ -20,6 +20,9 @@ SWIFT_REQUEST(TypeChecker, AbstractGenericSignatureRequest,
                                 SmallVector<GenericTypeParamType *, 2>,
                                 SmallVector<Requirement, 2>),
               Cached, NoLocationInfo)
+SWIFT_REQUEST(TypeChecker, AllOverriddenDeclsRequest,
+              ArrayRef<ValueDecl *>(ValueDecl *, bool), Cached,
+              NoLocationInfo)
 SWIFT_REQUEST(TypeChecker, ApplyAccessNoteRequest,
               evaluator::SideEffect(ValueDecl *), Cached, NoLocationInfo)
 SWIFT_REQUEST(TypeChecker, AttachedResultBuilderRequest,
@@ -214,6 +217,9 @@ SWIFT_REQUEST(TypeChecker, PropertyWrapperTypeInfoRequest,
               NoLocationInfo)
 SWIFT_REQUEST(TypeChecker, ProtocolRequiresClassRequest, bool(ProtocolDecl *),
               SeparatelyCached, NoLocationInfo)
+SWIFT_REQUEST(TypeChecker, ProvidedImplementationsRequest,
+              ArrayRef<ValueDecl *>(ValueDecl *, bool), Cached,
+              NoLocationInfo)
 SWIFT_REQUEST(TypeChecker, RequirementRequest,
               Requirement(WhereClauseOwner, unsigned, TypeResolutionStage),
               Cached, HasNearestLocation)

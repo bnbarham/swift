@@ -390,69 +390,6 @@ DocComment *swift::getSingleDocComment(swift::markup::MarkupContext &MC,
   return DocComment::create(D, MC, RC);
 }
 
-namespace {
-const ValueDecl *findOverriddenDeclWithDocComment(const ValueDecl *VD,
-                                                  bool AllowSerialized = true) {
-  // Only applies to class member.
-  if (!VD->getDeclContext()->getSelfClassDecl())
-    return nullptr;
-
-  while (auto *baseDecl = VD->getOverriddenDecl()) {
-    if (!baseDecl->getRawComment(AllowSerialized).isEmpty())
-      return baseDecl;
-    VD = baseDecl;
-  }
-
-  return nullptr;
-}
-
-const ValueDecl *findDefaultProvidedDeclWithDocComment(const ValueDecl *VD,
-                                                       bool AllowSerialized = false) {
-  auto protocol = VD->getDeclContext()->getExtendedProtocolDecl();
-  // Only applies to protocol extension member.
-  if (!protocol)
-    return nullptr;
-
-  ValueDecl *requirement = nullptr;
-
-  SmallVector<ValueDecl *, 2> members;
-  protocol->lookupQualified(const_cast<ProtocolDecl *>(protocol),
-                            DeclNameRef(VD->getName()),
-                            NLOptions::NL_ProtocolMembers,
-                            members);
-
-  for (auto *member : members) {
-    if (!isa<ProtocolDecl>(member->getDeclContext()) ||
-        !member->isProtocolRequirement() ||
-        member->getRawComment(AllowSerialized).isEmpty())
-      continue;
-    if (requirement)
-      // Found two or more decls with doc-comment.
-      return nullptr;
-
-    requirement = member;
-  }
-  return requirement;
-}
-
-const ValueDecl *findRequirementDeclWithDocComment(const ValueDecl *VD,
-                                                   bool AllowSerialized = false) {
-  std::queue<const ValueDecl *> requirements;
-  while (true) {
-    for (auto *req : VD->getSatisfiedProtocolRequirements()) {
-      if (!req->getRawComment(AllowSerialized).isEmpty())
-        return req;
-      else
-        requirements.push(req);
-    }
-    if (requirements.empty())
-      return nullptr;
-    VD = requirements.front();
-    requirements.pop();
-  }
-}
-} // namespace
-
 const Decl *swift::getDocCommentProvidingDecl(const Decl *D,
                                               bool AllowSerialized) {
   if (!D->canHaveComment())
@@ -465,16 +402,31 @@ const Decl *swift::getDocCommentProvidingDecl(const Decl *D,
   if (!VD)
     return nullptr;
 
-  if (auto *overriden = findOverriddenDeclWithDocComment(VD, AllowSerialized))
-    return overriden;
+  ValueDecl *BestOverride = nullptr;
+  bool MultipleConformance = false;
+  for (ValueDecl *Override : VD->getAllOverriddenDecls(/*transitive=*/true)) {
+    if (Override->getRawComment(AllowSerialized).isEmpty())
+      continue;
 
-  if (auto *requirement = findDefaultProvidedDeclWithDocComment(VD, AllowSerialized))
-    return requirement;
+    // Use the first actual override (ie. not a requirement) that has a comment.
+    if (!isa<ProtocolDecl>(Override->getDeclContext()->getAsDecl()))
+      return Override;
 
-  if (auto *requirement = findRequirementDeclWithDocComment(VD, AllowSerialized))
-    return requirement;
+    // Otherwise use the *only* requirement with a comment, ignoring all if
+    // there's multiple. getAllOveriddenDecls returns in a breadth first order,
+    // so there may be requirements mixed in with actual overrides - keep track
+    // of whether there's been any with a comment rather than returning nullptr
+    // straight away.
+    if (BestOverride) {
+      MultipleConformance = true;
+    } else {
+      BestOverride = Override;
+    }
+  }
 
-  return nullptr;
+  if (MultipleConformance)
+    return nullptr;
+  return BestOverride;
 }
 
 DocComment *

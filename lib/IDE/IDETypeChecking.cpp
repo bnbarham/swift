@@ -840,22 +840,6 @@ void swift::collectVariableType(
   Walker.walk(SF);
 }
 
-// TODO: What's a better name for this function and request?
-ArrayRef<ValueDecl*>
-swift::collectProvidedImplementations(const ValueDecl* VD) {
-  return evaluateOrDefault(
-      VD->getASTContext().evaluator,
-      CollectProvidedImplementationsRequest(const_cast<ValueDecl *>(VD)),
-      ArrayRef<ValueDecl *>());
-}
-
-ArrayRef<ValueDecl *> swift::collectAllOverriddenDecls(const ValueDecl *VD) {
-  return evaluateOrDefault(
-      VD->getASTContext().evaluator,
-      CollectOverriddenDeclsRequest(const_cast<ValueDecl *>(VD)),
-      ArrayRef<ValueDecl *>());
-}
-
 bool swift::isExtensionApplied(const DeclContext *DC, Type BaseTy,
                                const ExtensionDecl *ED) {
   return evaluateOrDefault(DC->getASTContext().evaluator,

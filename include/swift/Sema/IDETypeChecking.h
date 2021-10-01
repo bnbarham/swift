@@ -241,13 +241,6 @@ namespace swift {
 
   Type getResultTypeOfKeypathDynamicMember(SubscriptDecl *subscript);
 
-  /// Collect decls that \c VD provides the default implementation for.
-  ArrayRef<ValueDecl *> collectProvidedImplementations(const ValueDecl* VD);
-
-  /// Collect decls that \c VD overrides or serves as the witness of (whether
-  /// through being the default implementation or through a conformance).
-  ArrayRef<ValueDecl *> collectAllOverriddenDecls(const ValueDecl *VD);
-
   /// Enumerates the various kinds of "build" functions within a result
   /// builder.
   enum class ResultBuilderBuildFunction {

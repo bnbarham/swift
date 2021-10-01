@@ -1119,7 +1119,7 @@ ArrayRef<StringRef> copyAssociatedUSRs(llvm::BumpPtrAllocator &Allocator,
   };
 
   AddUSR(VD);
-  for (auto *Override : collectAllOverriddenDecls(VD)) {
+  for (auto *Override : VD->getAllOverriddenDecls(/*transitive=*/true)) {
     AddUSR(Override);
   }
 

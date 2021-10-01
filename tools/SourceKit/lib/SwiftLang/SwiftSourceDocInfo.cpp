@@ -1020,7 +1020,7 @@ fillSymbolInfo(CursorSymbolInfo &Symbol, const DeclInfo &DInfo,
     }
   }
 
-  for (auto *Override : collectAllOverriddenDecls(DInfo.VD)) {
+  for (auto *Override : DInfo.VD->getAllOverriddenDecls(/*transitive=*/true)) {
     Buffer.clear();
     if (!ide::printValueDeclUSR(Override, OS))
       Strings.push_back(copyAndClearString(Allocator, Buffer));

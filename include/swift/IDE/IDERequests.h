@@ -141,57 +141,6 @@ public:
 };
 
 //----------------------------------------------------------------------------//
-// CollectProvidedImplementationsRequest
-//----------------------------------------------------------------------------//
-/// Collect decls that \c VD provides the default implementation for.
-class CollectProvidedImplementationsRequest :
-    public SimpleRequest<CollectProvidedImplementationsRequest,
-                         ArrayRef<ValueDecl *>(ValueDecl *),
-                         RequestFlags::Cached> {
-public:
-  using SimpleRequest::SimpleRequest;
-
-private:
-  friend SimpleRequest;
-
-  // Evaluation.
-  ArrayRef<ValueDecl*> evaluate(Evaluator &evaluator,
-                                ValueDecl *VD) const;
-
-public:
-  // Caching
-  bool isCached() const { return true; }
-  // Source location
-  SourceLoc getNearestLoc() const { return SourceLoc(); };
-};
-
-
-//----------------------------------------------------------------------------//
-// CollectOverriddenDeclsRequest
-//----------------------------------------------------------------------------//
-/// Collect decls that \c VD overrides or serves as the witness of (whether
-/// through being the default implementation or through a conformance).
-class CollectOverriddenDeclsRequest:
-    public SimpleRequest<CollectOverriddenDeclsRequest,
-                         ArrayRef<ValueDecl *>(ValueDecl *),
-                         RequestFlags::Cached> {
-public:
-  using SimpleRequest::SimpleRequest;
-
-private:
-  friend SimpleRequest;
-
-  // Evaluation.
-  ArrayRef<ValueDecl *> evaluate(Evaluator &evaluator, ValueDecl *VD) const;
-
-public:
-  // Caching
-  bool isCached() const { return true; }
-  // Source location
-  SourceLoc getNearestLoc() const { return SourceLoc(); };
-};
-
-//----------------------------------------------------------------------------//
 // ResolveProtocolNameRequest
 //----------------------------------------------------------------------------//
 struct ProtocolNameOwner {

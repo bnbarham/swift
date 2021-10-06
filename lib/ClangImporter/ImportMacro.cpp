@@ -655,12 +655,10 @@ void ClangImporter::Implementation::importClangDetails(
   if (!Ignore) {
     StringRef USR = SwiftContext.AllocateCopy(Buffer.str());
 
-    auto *Attr = new (SwiftContext) ClangDetailsAttr(USR,
-                                                     /*XMLComment=*/StringRef(),
-                                                     Type(),
-                                                     /*IsMacro=*/true,
-                                                     /*IsObjCDirect=*/false,
-                                                     /*IsSwiftPrivate=*/false);
+    auto *Attr = new (SwiftContext) ClangDetailsAttr(
+        USR, /*Name=*/StringRef(), /*XMLComment=*/StringRef(), Type(),
+        /*IsMacro=*/true, /*IsAnonymous=*/false, /*IsObjCDirect=*/false,
+        /*IsSwiftPrivate=*/false);
     mappedDecl->getAttrs().add(Attr);
   }
 }

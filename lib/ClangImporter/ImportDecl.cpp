@@ -8633,6 +8633,18 @@ void ClangImporter::Implementation::importClangDetails(
       USR = SwiftContext.AllocateCopy(Buffer.str());
   }
 
+  StringRef Name;
+  if (auto *Identifier = ClangDecl->getIdentifier())
+    Name = Identifier->getName();
+
+  bool IsAnon = Name.empty();
+  if (IsAnon) {
+    if (auto *TD = dyn_cast<clang::TagDecl>(ClangDecl)) {
+      if (auto *Alias = TD->getTypedefNameForAnonDecl())
+        Name = Alias->getName();
+    }
+  }
+
   StringRef XMLComment;
   if (const clang::comments::FullComment *FC =
       getClangASTContext().getCommentForDecl(ClangDecl, /*PP=*/nullptr)) {
@@ -8660,10 +8672,9 @@ void ClangImporter::Implementation::importClangDetails(
 
   bool IsSwiftPrivate = ClangDecl->hasAttr<clang::SwiftPrivateAttr>();
 
-  auto *Attr = new (SwiftContext) ClangDetailsAttr(USR, XMLComment, ResultType,
-                                                   /*IsMacro=*/false,
-                                                   IsObjCDirect,
-                                                   IsSwiftPrivate);
+  auto *Attr = new (SwiftContext) ClangDetailsAttr(
+      USR, Name, XMLComment, ResultType, /*IsMacro=*/false, IsAnon,
+      IsObjCDirect, IsSwiftPrivate);
   MappedDecl->getAttrs().add(Attr);
 }
 

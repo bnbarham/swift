@@ -172,9 +172,11 @@ protected:
       kind : NumKnownProtocolKindBits
     );
 
-    SWIFT_INLINE_BITFIELD(ClangDetailsAttr, DeclAttribute, 1+1+1,
+    SWIFT_INLINE_BITFIELD(ClangDetailsAttr, DeclAttribute, 1+1+1+1,
       /// Whether the imported node was a macro (or decl otherwise)
       IsMacro : 1,
+      /// Whether the imported decl had no name
+      IsAnonymous : 1,
       /// Whether the imported decl was a direct method/property
       IsObjCDirect : 1,
       /// Whether the imported decl was attributed with swift_private
@@ -2037,6 +2039,11 @@ public:
   /// now though.
   const StringRef USR;
 
+  /// Simple name of the imported decl, or the typedef name if it was an
+  /// anonymous TagDecl. \see isAnonymous() to check if the name came from the
+  /// latter case.
+  const StringRef Name;
+
   /// The attached doc comment, parsed and formatted into XML.
   ///
   /// Parsing currently requires the underlying Clang decl, it's possible we
@@ -2047,12 +2054,14 @@ public:
   /// Imported result type of the attached decl (assuming it's a FuncDecl).
   const Type ResultType;
 
-  ClangDetailsAttr(StringRef USR, StringRef XMLComment, Type ResultType,
-                   bool IsMacro, bool IsObjCDirect, bool IsSwiftPrivate)
+  ClangDetailsAttr(StringRef USR, StringRef Name, StringRef XMLComment,
+                   Type ResultType, bool IsMacro, bool IsAnonymous,
+                   bool IsObjCDirect, bool IsSwiftPrivate)
       : DeclAttribute(DAK_ClangDetails, SourceLoc(), SourceRange(),
-                      /*Implicit=*/true), USR(USR), XMLComment(XMLComment),
-        ResultType(ResultType) {
+                      /*Implicit=*/true), USR(USR), Name(Name),
+        XMLComment(XMLComment), ResultType(ResultType) {
     Bits.ClangDetailsAttr.IsMacro = IsMacro;
+    Bits.ClangDetailsAttr.IsAnonymous = IsAnonymous;
     Bits.ClangDetailsAttr.IsObjCDirect = IsObjCDirect;
     Bits.ClangDetailsAttr.IsSwiftPrivate = IsSwiftPrivate;
   }
@@ -2065,6 +2074,13 @@ public:
   /// Whether the imported node is a macro
   bool isMacro() const {
     return Bits.ClangDetailsAttr.IsMacro;
+  }
+
+  /// Whether the imported decl had no name. Note that TagDecls may still have
+  /// a \c Name if they had a corresponding TypedefNameDecl with a name, but
+  /// this function will still return \c true in that case.
+  bool isAnonymous() const {
+    return Bits.ClangDetailsAttr.IsAnonymous;
   }
 
   /// Whether the imported decl is a direct method/property

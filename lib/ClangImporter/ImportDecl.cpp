@@ -55,8 +55,6 @@
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/Specifiers.h"
 #include "clang/Basic/TargetInfo.h"
-#include "clang/Index/CommentToXML.h"
-#include "clang/Index/USRGeneration.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/Lookup.h"
 
@@ -7574,6 +7572,9 @@ SwiftDeclConverter::importSubscript(Decl *decl,
   }
   const auto access = IsObjCDirect ? AccessLevel::Public
                                    : getOverridableAccessLevel(dc);
+//  auto access = AccessLevel::Public;
+//  if (getterObjCMethod->isDirectMethod())
+//    access = getOverridableAccessLevel(dc);
   subscript->setAccess(access);
   subscript->setSetterAccess(access);
 
@@ -8597,87 +8598,6 @@ static bool isUsingMacroName(clang::SourceManager &SM,
   return content == MacroName;
 }
 
-static bool shouldAddUSR(const clang::NamedDecl *ClangDecl, Decl *MappedDecl) {
-  // NSErrorDomain causes a Clang enum to be imported like this:
-  // struct MyError {
-  //     enum Code : Int32 {
-  //         case errFirst
-  //         case errSecond
-  //     }
-  //     static var errFirst: MyError.Code { get }
-  //     static var errSecond: MyError.Code { get }
-  // }
-  //
-  // Where both the static vars and enum cases have the EnumConstantDecl as
-  // their Clang decl. We want unique USRs for these though, so only use the
-  // Clang USR for the enum cases.
-  if (auto *ClangEnumConst = dyn_cast<clang::EnumConstantDecl>(ClangDecl)) {
-    if (auto *ClangEnum =
-        dyn_cast<clang::EnumDecl>(ClangEnumConst->getDeclContext())) {
-      if (ClangEnum->hasAttr<clang::NSErrorDomainAttr>() &&
-          isa<VarDecl>(MappedDecl))
-        return false;
-    }
-  }
-  return true;
-}
-
-void ClangImporter::Implementation::importClangDetails(
-    const clang::NamedDecl *ClangDecl, Decl *MappedDecl) {
-  llvm::SmallString<1024> Buffer;
-
-  StringRef USR;
-  if (shouldAddUSR(ClangDecl, MappedDecl)) {
-    bool Ignore = clang::index::generateUSRForDecl(ClangDecl, Buffer);
-    if (!Ignore)
-      USR = SwiftContext.AllocateCopy(Buffer.str());
-  }
-
-  StringRef Name;
-  if (auto *Identifier = ClangDecl->getIdentifier())
-    Name = Identifier->getName();
-
-  bool IsAnon = Name.empty();
-  if (IsAnon) {
-    if (auto *TD = dyn_cast<clang::TagDecl>(ClangDecl)) {
-      if (auto *Alias = TD->getTypedefNameForAnonDecl())
-        Name = Alias->getName();
-    }
-  }
-
-  StringRef XMLComment;
-  if (const clang::comments::FullComment *FC =
-      getClangASTContext().getCommentForDecl(ClangDecl, /*PP=*/nullptr)) {
-    Buffer.clear();
-    // TODO: Why is this not just a namespace?
-    clang::index::CommentToXMLConverter Converter;
-    Converter.convertCommentToXML(FC, Buffer, getClangASTContext());
-    XMLComment = SwiftContext.AllocateCopy(Buffer.str());
-  }
-
-  Type ResultType;
-  if (auto *FD = dyn_cast<clang::FunctionDecl>(ClangDecl)) {
-    ResultType =
-        importFunctionReturnType(MappedDecl->getDeclContext(), FD).getType();
-    if (!ResultType)
-      ResultType = MappedDecl->getASTContext().getNeverType();
-  }
-
-  bool IsObjCDirect = false;
-  if (auto method = dyn_cast<clang::ObjCMethodDecl>(ClangDecl)) {
-    IsObjCDirect = method->isDirectMethod();
-  } else if (auto property = dyn_cast<clang::ObjCPropertyDecl>(ClangDecl)) {
-    IsObjCDirect = property->isDirectProperty();
-  }
-
-  bool IsSwiftPrivate = ClangDecl->hasAttr<clang::SwiftPrivateAttr>();
-
-  auto *Attr = new (SwiftContext) ClangDetailsAttr(
-      USR, Name, XMLComment, ResultType, /*IsMacro=*/false, IsAnon,
-      IsObjCDirect, IsSwiftPrivate);
-  MappedDecl->getAttrs().add(Attr);
-}
-
 /// Import Clang attributes as Swift attributes.
 void ClangImporter::Implementation::importAttributes(
     const clang::NamedDecl *ClangDecl,
@@ -8699,21 +8619,6 @@ void ClangImporter::Implementation::importAttributes(
   bool isAsync = false;
   if (auto func = dyn_cast<AbstractFunctionDecl>(MappedDecl))
     isAsync = func->hasAsync();
-
-  // Attributes to provide information about the Clang decl from the mapped
-  // Swift decl, without requiring access to the Clang decl itself. Only the
-  // importer should have access to the underlying Clang AST.
-  //
-  // Only add if the underlying Clang decl is the same as the current one (ie.
-  // don't add duplicate attributes for a superfluous typedef).
-  if (MappedDecl->getClangDecl() == ClangDecl) {
-    importClangDetails(ClangDecl, MappedDecl);
-
-    CharSourceRange CommentRange = importCommentRange(ClangDecl);
-    if (CommentRange.isValid())
-      MappedDecl->getAttrs()
-          .add(new (SwiftContext) RawDocCommentAttr(CommentRange));
-  }
 
   // Scan through Clang attributes and map them onto Swift
   // equivalents.

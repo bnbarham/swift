@@ -457,14 +457,25 @@ void ASTMangler::beginManglingWithAutoDiffOriginalFunction(
     appendOperator(attr->Name);
     return;
   }
+
   // For imported Clang declarations, use the Clang name in order to match how
   // DifferentiationMangler handles these.
-  auto clangDecl = getClangDeclForMangling(afd);
-  if (clangDecl) {
-    beginManglingWithoutPrefix();
-    appendOperator(clangDecl->getName());
-    return;
+  if (const ClangDetailsAttr *details = afd->getClangDetails()) {
+    if (!details->Name.empty()) {
+      // TODO: Sanity checking, remove
+      assert(getClangDeclForMangling(afd)->getName() == details->Name &&
+             "Clang details name not the same as the underlying decl");
+
+      beginManglingWithoutPrefix();
+      appendOperator(details->Name);
+      return;
+    }
   }
+
+  // TODO: Sanity checking, remove
+  assert(!getClangDeclForMangling(afd) &&
+         "Should have handled ClangDecl already");
+
   beginMangling();
   if (auto *cd = dyn_cast<ConstructorDecl>(afd))
     appendConstructorEntity(cd, /*isAllocating*/ !cd->isConvenienceInit());

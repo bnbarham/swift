@@ -172,14 +172,13 @@ protected:
       kind : NumKnownProtocolKindBits
     );
 
-    SWIFT_INLINE_BITFIELD(ClangDetailsAttr, DeclAttribute, 1+1+1+1,
-      /// Whether the imported node was a macro (or decl otherwise)
+    /// \see is* methods in \c ClangDetailsAttr for documentation of each
+    /// bit
+    SWIFT_INLINE_BITFIELD(ClangDetailsAttr, DeclAttribute, 1+1+1+1+1,
       IsMacro : 1,
-      /// Whether the imported decl had no name
+      IsAlias : 1,
       IsAnonymous : 1,
-      /// Whether the imported decl was a direct method/property
       IsObjCDirect : 1,
-      /// Whether the imported decl was attributed with swift_private
       IsSwiftPrivate : 1
     );
   } Bits;
@@ -2055,12 +2054,13 @@ public:
   const Type ResultType;
 
   ClangDetailsAttr(StringRef USR, StringRef Name, StringRef XMLComment,
-                   Type ResultType, bool IsMacro, bool IsAnonymous,
-                   bool IsObjCDirect, bool IsSwiftPrivate)
+                   Type ResultType, bool IsMacro, bool IsAlias,
+                   bool IsAnonymous, bool IsObjCDirect, bool IsSwiftPrivate)
       : DeclAttribute(DAK_ClangDetails, SourceLoc(), SourceRange(),
                       /*Implicit=*/true), USR(USR), Name(Name),
         XMLComment(XMLComment), ResultType(ResultType) {
     Bits.ClangDetailsAttr.IsMacro = IsMacro;
+    Bits.ClangDetailsAttr.IsAlias = IsAlias;
     Bits.ClangDetailsAttr.IsAnonymous = IsAnonymous;
     Bits.ClangDetailsAttr.IsObjCDirect = IsObjCDirect;
     Bits.ClangDetailsAttr.IsSwiftPrivate = IsSwiftPrivate;
@@ -2074,6 +2074,12 @@ public:
   /// Whether the imported node is a macro
   bool isMacro() const {
     return Bits.ClangDetailsAttr.IsMacro;
+  }
+
+  /// Whether the imported decl was a \c TypedefNameDecl or
+  /// \c ObjCCompatibleAliasDecl.
+  bool isAlias() const {
+    return Bits.ClangDetailsAttr.IsAlias;
   }
 
   /// Whether the imported decl had no name. Note that TagDecls may still have

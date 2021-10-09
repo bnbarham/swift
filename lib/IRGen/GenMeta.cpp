@@ -1134,17 +1134,28 @@ namespace {
 
         // Otherwise, if this was imported from a Clang declaration, use that
         // declaration's name as the ABI name.
-      } else if (auto clangDecl =
-                            Mangle::ASTMangler::getClangDeclForMangling(Type)) {
-        abiName = clangDecl->getName();
+      } else if (const ClangDetailsAttr *details = Type->getClangDetails()) {
+        if (!details->Name.empty())
+            abiName = details->Name;
 
         // Typedefs and compatibility aliases that have been promoted to
         // their own nominal types need to be marked specially.
-        if (isa<clang::TypedefNameDecl>(clangDecl) ||
-            isa<clang::ObjCCompatibleAliasDecl>(clangDecl)) {
+        if (details->isAlias() || details->isAnonymous())
           getMutableImportInfo().SymbolNamespace =
             TypeImportSymbolNamespace::CTypedef;
+
+        // TODO: For sanity checking, remove
+        auto *CD = Mangle::ASTMangler::getClangDeclForMangling(Type);
+        assert(abiName == CD->getName() &&
+               "@ObjC name does not match name from ClangDecl");
+        if (isa<clang::TypedefNameDecl>(CD) ||
+            isa<clang::ObjCCompatibleAliasDecl>(CD)) {
+          assert(getMutableImportInfo().SymbolNamespace ==
+                 TypeImportSymbolNamespace::CTypedef &&
+                 "@_clangDetails type does not match ClangDecl");
         }
+      } else if (auto *CD = Mangle::ASTMangler::getClangDeclForMangling(Type)) {
+        assert(false && "ClangDecl should have been handled");
       }
 
       // If the ABI name differs from the user-facing name, add it as

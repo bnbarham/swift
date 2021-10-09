@@ -49,7 +49,9 @@
 #include "clang/CodeGen/ObjectFilePCHContainerOperations.h"
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/Frontend/Utils.h"
+#include "clang/Index/CommentToXML.h"
 #include "clang/Index/IndexingAction.h"
+#include "clang/Index/USRGeneration.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/PreprocessorOptions.h"
 #include "clang/Parse/Parser.h"
@@ -4351,4 +4353,114 @@ ClangImporter::instantiateCXXClassTemplate(
 bool ClangImporter::isCXXMethodMutating(const clang::CXXMethodDecl *method) {
   return isa<clang::CXXConstructorDecl>(method) || !method->isConst() ||
          method->getParent()->hasMutableFields();
+}
+
+static bool shouldAddUSR(Decl *decl, const clang::NamedDecl *clangDecl) {
+  // NSErrorDomain causes a Clang enum to be imported like this:
+  // struct MyError {
+  //     enum Code : Int32 {
+  //         case errFirst
+  //         case errSecond
+  //     }
+  //     static var errFirst: MyError.Code { get }
+  //     static var errSecond: MyError.Code { get }
+  // }
+  //
+  // Where both the static vars and enum cases have the EnumConstantDecl as
+  // their Clang decl. We want unique USRs for these though, so only use the
+  // Clang USR for the enum cases.
+  if (auto *EC = dyn_cast<clang::EnumConstantDecl>(clangDecl)) {
+    if (auto *ED = dyn_cast<clang::EnumDecl>(EC->getDeclContext())) {
+      if (ED->hasAttr<clang::NSErrorDomainAttr>() && isa<VarDecl>(decl))
+        return false;
+    }
+  }
+  return true;
+}
+
+// Attributes to provide information about the Clang decl from the mapped
+// Swift decl, without requiring access to the Clang decl itself. Only the
+// importer should have access to the underlying Clang AST.
+void ClangImporter::Implementation::addClangDetails(ValueDecl *decl,
+                                                    ClangNode node) {
+  llvm::SmallString<1024> buffer;
+
+  if (const clang::MacroInfo *macro = node.getAsMacro()) {
+    bool ignore = clang::index::generateUSRForMacro(
+        decl->getBaseIdentifier().str(), macro->getDefinitionLoc(),
+        getClangASTContext().getSourceManager(), buffer);
+    if (!ignore) {
+      StringRef usr = SwiftContext.AllocateCopy(buffer.str());
+      auto *attr = new (SwiftContext) ClangDetailsAttr(
+          usr, /*Name=*/StringRef(), /*XMLComment=*/StringRef(), Type(),
+          /*IsMacro=*/true, /*IsAlias=*/false, /*IsAnonymous=*/false,
+          /*IsObjCDirect=*/false, /*IsSwiftPrivate=*/false);
+      decl->getAttrs().add(attr);
+    }
+    return;
+  }
+
+  const clang::NamedDecl *clangDecl =
+      dyn_cast_or_null<clang::NamedDecl>(node.getAsDecl());
+  if (!clangDecl)
+    return;
+
+  StringRef usr;
+  if (shouldAddUSR(decl, clangDecl)) {
+    bool ignore = clang::index::generateUSRForDecl(clangDecl, buffer);
+    if (!ignore)
+      usr = SwiftContext.AllocateCopy(buffer.str());
+  }
+
+  StringRef name;
+  if (auto *identifier = clangDecl->getIdentifier())
+    name = identifier->getName();
+
+  bool isAnon = name.empty();
+  if (isAnon) {
+    if (auto *TD = dyn_cast<clang::TagDecl>(clangDecl)) {
+      if (auto *alias = TD->getTypedefNameForAnonDecl())
+        name = alias->getName();
+    }
+  }
+
+  StringRef xmlComment;
+  if (const clang::comments::FullComment *FC =
+      getClangASTContext().getCommentForDecl(clangDecl, /*PP=*/nullptr)) {
+    buffer.clear();
+    // TODO: Why is this not just a namespace?
+    clang::index::CommentToXMLConverter converter;
+    converter.convertCommentToXML(FC, buffer, getClangASTContext());
+    xmlComment = SwiftContext.AllocateCopy(buffer.str());
+  }
+
+  Type resultType;
+  if (auto *FD = dyn_cast<clang::FunctionDecl>(clangDecl)) {
+    resultType =
+        importFunctionReturnType(decl->getDeclContext(), FD).getType();
+    if (!resultType)
+      resultType = decl->getASTContext().getNeverType();
+  }
+
+  bool isAlias = isa<clang::TypedefNameDecl>(clangDecl) ||
+      isa<clang::ObjCCompatibleAliasDecl>(clangDecl);
+
+  bool isObjCDirect = false;
+  if (auto method = dyn_cast<clang::ObjCMethodDecl>(clangDecl)) {
+    isObjCDirect = method->isDirectMethod();
+  } else if (auto property = dyn_cast<clang::ObjCPropertyDecl>(clangDecl)) {
+    isObjCDirect = property->isDirectProperty();
+  }
+
+  bool isSwiftPrivate = clangDecl->hasAttr<clang::SwiftPrivateAttr>();
+
+  auto *attr = new (SwiftContext) ClangDetailsAttr(
+      usr, name, xmlComment, resultType, /*IsMacro=*/false, isAlias, isAnon,
+      isObjCDirect, isSwiftPrivate);
+  decl->getAttrs().add(attr);
+
+  CharSourceRange commentRange = importCommentRange(clangDecl);
+  if (commentRange.isValid())
+    decl->getAttrs()
+        .add(new (SwiftContext) RawDocCommentAttr(commentRange));
 }

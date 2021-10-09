@@ -1451,8 +1451,13 @@ public:
     D->setAccess(access);
     if (auto ASD = dyn_cast<AbstractStorageDecl>(D))
       ASD->setSetterAccess(access);
+    addClangDetails(D, ClangN);
     return D;
   }
+
+  /// Add the @_clangDetails attribute to \c decl with any details required for
+  /// use outside of the Clang importer.
+  void addClangDetails(ValueDecl *decl, ClangNode node);
 
   /// Find the lookup table that corresponds to the given Clang module.
   ///

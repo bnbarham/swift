@@ -41,10 +41,24 @@ getNameForObjC(const ValueDecl *VD, CustomNamesOnly_t customNamesOnly) {
   if (customNamesOnly)
     return StringRef();
 
-  if (const ClangDetailsAttr *details = VD->getClangDetails()) {
-    if (!details->Name.empty())
-      return details->Name;
+  // TODO: Sanity checking, remove
+  StringRef declName;
+  if (auto clangDecl = dyn_cast_or_null<clang::NamedDecl>(VD->getClangDecl())) {
+    if (const clang::IdentifierInfo *II = clangDecl->getIdentifier()) {
+      declName = II->getName();
+    } else if (auto *anonDecl = dyn_cast<clang::TagDecl>(clangDecl)) {
+      if (auto *anonTypedef = anonDecl->getTypedefNameForAnonDecl())
+        declName = anonTypedef->getIdentifier()->getName();
+    }
   }
+
+  if (const ClangDetailsAttr *details = VD->getClangDetails()) {
+    if (!details->Name.empty()) {
+      assert(declName == details->Name && "Clang decl name different");
+      return details->Name;
+    }
+  }
+  assert(declName.empty() && "Details missing name");
 
   return VD->getBaseIdentifier().str();
 }
